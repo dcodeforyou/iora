@@ -763,7 +763,7 @@ export default function ProofSection() {
           className="absolute inset-x-0 top-[6vh] z-10 flex flex-col items-center gap-4 px-6 text-center"
         >
           <p className="font-mono-kicker text-xs uppercase tracking-[0.3em] text-chalk-muted">
-            [ proof ]
+            [ the deploy ]
           </p>
           <h2 className="max-w-2xl font-display text-4xl font-semibold leading-tight text-chalk sm:text-5xl">
             What we deploy.
