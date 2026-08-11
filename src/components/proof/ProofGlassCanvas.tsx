@@ -271,8 +271,18 @@ export default function ProofGlassCanvas({ state }: { state: ProofGlassState }) 
       ) : (
         <Canvas
           orthographic
-          dpr={[1, 1.75]}
-          gl={{ antialias: true, alpha: true }}
+          // Trimmed from [1, 1.75] + antialias:true — this canvas renders
+          // a full-viewport offscreen background scene into an FBO EVERY
+          // single frame (see ProofGlassScene's useFrame), continuously,
+          // for the entire time even 1px of this ~500vh section is on
+          // screen (threshold: 0 below) — real, sustained GPU cost, not a
+          // one-off. MSAA antialiasing on top of that (and on top of a
+          // >1x DPR, which already does its own supersampling-like
+          // smoothing) was doubling down on the same job for limited
+          // visible gain. Reported directly as severe mobile lag through
+          // this section. Still within AGENTS.md's stated 1.5-2 DPR cap.
+          dpr={[1, 1.5]}
+          gl={{ antialias: false, alpha: true }}
           frameloop={isVisible ? "always" : "never"}
           fallback={<GlassPoster />}
         >

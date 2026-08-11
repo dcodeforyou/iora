@@ -770,17 +770,29 @@ export default function AttentionSection() {
           the noise sits on the glass, not on the content, so it doesn't
           scale/move with the wall's own transform. Static, no per-frame
           animation on the texture — an earlier version jittered it via a
-          CSS keyframe for "life," but that read as flickering, not grain. */}
-      <svg className="absolute h-0 w-0 overflow-hidden" aria-hidden="true">
-        <filter id="attention-tv-static">
-          <feTurbulence type="fractalNoise" baseFrequency="0.25" numOctaves="2" stitchTiles="stitch" result="noise" />
-          <feColorMatrix in="noise" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.9 0" />
-        </filter>
-      </svg>
+          CSS keyframe for "life," but that read as flickering, not grain.
+          The noise itself is still generated with feTurbulence, but as a
+          `background-image` data-URI (a static, once-rasterized bitmap
+          tile), not a live `filter:` applied to this fixed, full-viewport
+          layer — feTurbulence as a live CSS filter is one of the most
+          expensive effects mobile Safari can be asked to run, and this
+          layer sits active for this section's entire 240vh scroll range
+          on a page that's already continuously repainting via Lenis/GSAP,
+          which can force WebKit to keep re-evaluating rather than caching
+          the filtered raster. Moving the same noise generation into a
+          pre-rasterized tile keeps the identical look for a fraction of
+          the cost — reported directly as real, severe mobile lag through
+          this exact section. */}
       <div
         ref={grainRef}
         className="invisible pointer-events-none fixed inset-0 z-[35] mix-blend-overlay"
-        style={{ filter: "url(#attention-tv-static)", backgroundColor: "#888", opacity: 0 }}
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.25' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+          backgroundRepeat: "repeat",
+          backgroundColor: "#888",
+          opacity: 0,
+        }}
       />
 
       {/* Zoom-into-the-dot-of-"i" reveal overlay — mirrors ImpactSection's content

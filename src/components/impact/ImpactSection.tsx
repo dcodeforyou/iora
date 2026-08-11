@@ -393,7 +393,6 @@ export default function ImpactSection() {
       gsap.to(glow, {
         opacity: 1,
         scale: 1.25,
-        filter: "blur(100px)",
         duration: 0.4,
         ease: "power2.out",
       });
@@ -413,7 +412,6 @@ export default function ImpactSection() {
       // smaller, denser, hotter point, not fading away.
       tl.to(glow, {
         scale: 0.1,
-        filter: "blur(18px)",
         duration: 0.4,
         ease: "power2.in",
       })
@@ -535,9 +533,26 @@ export default function ImpactSection() {
   return (
     <section ref={sectionRef} className="relative min-h-[200vh] w-full bg-ink">
       <div className="sticky top-0 flex h-svh w-full items-center justify-center overflow-hidden">
+        {/* Radial-gradient glow, not a solid-color div + `blur()` filter —
+            the soft falloff is baked into the gradient's own color stops,
+            so there's no filter rasterization cost at all (a real GPU tax
+            on mobile, especially animated via scale/opacity every frame),
+            and it sidesteps the exact GPU-compositor clipping bug
+            AttentionSection's own comments already document for large
+            animated blur+transform combos (confirmed there as a real
+            rendering bug, not just a perf cost — this glow reportedly hit
+            the same "blur clips to a hard square edge" failure). Scaling
+            this box down uniformly (see the condense tween above) shrinks
+            the gradient's whole falloff proportionally, which already
+            reads as "concentrating into a smaller, denser point" with no
+            separate blur-radius animation needed. */}
         <div
           ref={glowRef}
-          className="pointer-events-none absolute h-[60vmin] w-[60vmin] scale-125 rounded-full bg-accent blur-[100px]"
+          className="pointer-events-none absolute h-[60vmin] w-[60vmin] scale-125 rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle, var(--color-accent) 0%, color-mix(in srgb, var(--color-accent) 55%, transparent) 30%, color-mix(in srgb, var(--color-accent) 15%, transparent) 55%, transparent 75%)",
+          }}
         />
         <div
           ref={shockwaveRef}
