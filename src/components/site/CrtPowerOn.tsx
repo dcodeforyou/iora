@@ -455,8 +455,10 @@ export default function CrtPowerOn() {
         // explode segment starting, mobile only. `{}, { duration }` — a
         // real no-op tween on an empty object, purely to consume timeline
         // time, since GSAP timelines don't have a bare "wait" method.
+        // Started at 0.7, then reported as reading too late — trimmed to
+        // 0.2.
         if (getActiveVideoKey() === "mobile") {
-          scrollTl.to({}, { duration: 0.7 });
+          scrollTl.to({}, { duration: 0.2 });
         }
         // The slomo segment — real shard-explosion window, given real
         // extra time rather than being buried in the fast middle of a
