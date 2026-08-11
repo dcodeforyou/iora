@@ -112,6 +112,32 @@ function GlassCards({
       mesh.position.set(worldX, worldY, 0.1);
       mesh.scale.set(state.cardWidth, state.cardHeight, 1);
 
+      // Skip shading entirely for any card that's fully off-screen —
+      // this carousel only ever shows one card centered at a time
+      // (occasionally two, mid-transition), but all 3 meshes existed
+      // and ran their full fragment shader unconditionally regardless:
+      // 3 texture samples (chromatic aberration) plus 4 extra SDF
+      // evaluations just for the surface normal, EACH, every frame.
+      // Pure correctness-preserving — a card outside these bounds was
+      // never visually different either way — so this applies on every
+      // device, not just mobile, unlike the DPR/resolution trims
+      // elsewhere in this file which do trade some visual quality for
+      // speed. Roughly halves the average card-shader cost given the
+      // carousel's own dwell/transition timing (~66% of scroll time
+      // sits in a single-card dwell zone — see ProofSection's
+      // DWELL/TRANSITION constants). Small margin so a card doesn't
+      // visibly pop the instant it crosses the exact edge.
+      const halfW = state.cardWidth / 2;
+      const halfH = state.cardHeight / 2;
+      const margin = 40;
+      const onScreen =
+        center.x + halfW > -margin &&
+        center.x - halfW < size.width + margin &&
+        center.y + halfH > -margin &&
+        center.y - halfH < size.height + margin;
+      mesh.visible = onScreen;
+      if (!onScreen) continue;
+
       const u = material.uniforms;
       u.uResolution.value.set(state.cardWidth, state.cardHeight);
       u.uRadius.value = state.cardRadius;
