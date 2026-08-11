@@ -778,6 +778,7 @@ export default function PitchSection() {
   return (
     <section
       ref={sectionRef}
+      id="pitch-section"
       data-nav-bg-zone="pitch"
       className="relative min-h-[240vh] w-full bg-ink"
     >

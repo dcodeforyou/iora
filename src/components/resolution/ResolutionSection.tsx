@@ -51,10 +51,27 @@ export default function ResolutionSection() {
       ([entry]) => {
         const hint = document.getElementById("pitch-scroll-hint");
         if (!hint) return;
-        // Empty string (not "0") when NOT intersecting — hands control
-        // back to whatever Pitch's own commit/release logic already set,
-        // rather than fighting it with a competing hard value.
-        hint.style.opacity = entry.isIntersecting ? "0" : "";
+        if (entry.isIntersecting) {
+          hint.style.opacity = "0";
+          return;
+        }
+        // NOT just "" here — that clears the inline override entirely
+        // and falls back to the Tailwind `opacity-0` CLASS, which is
+        // unconditionally present on this element regardless of Pitch's
+        // own state (Pitch shows/hides it purely via inline style, never
+        // toggling that class). IntersectionObservers can genuinely
+        // refire with isIntersecting:false even without a real
+        // visibility change (unrelated layout shifts elsewhere on the
+        // page) — a bare "" reset here would silently re-hide an
+        // already-committed hint the next time that happened, which is
+        // exactly what was reported ("scroll word not appearing" even
+        // once Pitch had genuinely finished). Explicitly checking
+        // Pitch's own committed flag (see commitOrangeState) and
+        // restoring "1" when it's true means this only ever HIDES the
+        // hint (for the video-in-view case) or leaves Pitch's own
+        // already-correct state alone — it can no longer clobber it.
+        const pitchCommitted = document.getElementById("pitch-section")?.dataset.committed === "true";
+        hint.style.opacity = pitchCommitted ? "1" : "";
       },
       { threshold: 0 },
     );
