@@ -71,7 +71,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           Lenis/StrictMode/overflow-hidden/absolute children). Full-height
           sections stack correctly with ordinary block layout; flex was
           never actually needed here. */}
-      <body className="min-h-full bg-ink text-chalk">
+      {/* suppressHydrationWarning here — NOT masking a real mismatch,
+          scoped to only this one element (React doesn't propagate it to
+          children). The ColorZilla browser extension injects a
+          `cz-shortcut-listen="true"` attribute onto <body> before React
+          hydrates, which the server obviously never rendered — one of
+          Next.js's own explicitly-documented false-positive causes
+          ("a browser extension installed which messes with the HTML
+          before React loaded"). Real mobile Safari sessions don't have
+          this extension; it only shows up testing via desktop Chrome's
+          mobile emulation with ColorZilla installed. */}
+      <body className="min-h-full bg-ink text-chalk" suppressHydrationWarning>
         <CrtPowerOn />
         <CustomCursor />
         <SoundToggle />
