@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 460" fill="none">
+  <!-- ï bar -->
+  <rect x="60" y="140" width="62" height="260" rx="14" fill="#ff4e32"/>
+  <!-- ï dots: pair centered over the bar's own center (x=91), 22px gap
+       between them, each dot's center exactly 37px from the bar's
+       center — same distance either side, same 52x52 size, both true
+       by construction (28+52+22+52=154, midpoint=91=bar center). -->
+  <rect x="28" y="60" width="52" height="52" rx="8" fill="#ff4e32"/>
+  <rect x="102" y="60" width="52" height="52" rx="8" fill="#ff4e32"/>
+
+  <!-- o: squircle ring, uniform 62px stroke thickness on every side —
+       true transparent counter (evenodd), not a background-colored
+       patch, so this reads correctly on any background. -->
+  <path
+    fill-rule="evenodd"
+    clip-rule="evenodd"
+    d="M262,140 H398 Q452,140 452,194 V346 Q452,400 398,400 H262 Q208,400 208,346 V194 Q208,140 262,140 Z M296,202 H364 Q390,202 390,228 V312 Q390,338 364,338 H296 Q270,338 270,312 V228 Q270,202 296,202 Z"
+    fill="#ff4e32"
+  />
+
+  <!-- r: stem + arm (arm's left portion sits under the stem, so its
+       own top-left/bottom-left rounding is simply covered) -->
+  <rect x="510" y="140" width="62" height="260" rx="14" fill="#ff4e32"/>
+  <rect x="510" y="140" width="150" height="88" rx="28" fill="#ff4e32"/>
+
+  <!-- a: single-story squircle-derived a — narrower than o (210 vs
+       244) with a deliberately LOPSIDED counter inset (46 left / 46
+       top / 72 right / 74 bottom) — a thick solid stem on the right, a
+       thick solid base along the bottom, thin margins top/left. The
+       first pass here used near-equal insets and just read as "a
+       smaller o"; the point of a single-story a is that asymmetry
+       needs to be pronounced, not subtle, to read as a distinct
+       letterform rather than a variant of o. True transparent counter
+       via evenodd, same reasoning as o. -->
+  <path
+    fill-rule="evenodd"
+    clip-rule="evenodd"
+    d="M780,140 H890 Q940,140 940,190 V350 Q940,400 890,400 H780 Q730,400 730,350 V190 Q730,140 780,140 Z M798,186 H846 Q868,186 868,208 V304 Q868,326 846,326 H798 Q776,326 776,304 V208 Q776,186 798,186 Z"
+    fill="#ff4e32"
+  />
+</svg>

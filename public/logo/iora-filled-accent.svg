@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 460" fill="none">
+  <!-- ï bar -->
+  <rect x="60" y="140" width="62" height="260" rx="14" fill="#ff4e32"/>
+  <!-- ï dots: same exact construction as the ringed variant — pair
+       centered over the bar's own center (x=91), 22px gap, each dot's
+       center 37px from the bar's center either side. -->
+  <rect x="28" y="60" width="52" height="52" rx="8" fill="#ff4e32"/>
+  <rect x="102" y="60" width="52" height="52" rx="8" fill="#ff4e32"/>
+
+  <!-- o: solid filled squircle — same outer silhouette as the ringed
+       variant's o (208,140,244,260, r54), no counter cutout. -->
+  <rect x="208" y="140" width="244" height="260" rx="54" fill="#ff4e32"/>
+
+  <!-- r: identical to the ringed variant — no counter involved either way -->
+  <rect x="510" y="140" width="62" height="260" rx="14" fill="#ff4e32"/>
+  <rect x="510" y="140" width="150" height="88" rx="28" fill="#ff4e32"/>
+
+  <!-- a: solid filled squircle, narrower than o — same outer silhouette
+       as the ringed variant's a (730,140,210,260, r50), no counter.
+       Differentiated from o by proportion alone (narrower), matching
+       this variant's blockier, counter-free reduction of the
+       letterforms. -->
+  <rect x="730" y="140" width="210" height="260" rx="50" fill="#ff4e32"/>
+</svg>

@@ -1,0 +1,181 @@
+@import "tailwindcss";
+
+/*
+  Palette discipline (see AGENTS.md): near-black base + one accent, revealed
+  only at the Impact/splat beat. Do not invent colors in components — every
+  hex value the site uses lives here.
+*/
+:root {
+  --color-ink: #0b0c10;       /* base background — CRT charcoal, not pure #000 */
+  --color-ink-soft: #14161c;   /* secondary panels / cards */
+  --color-chalk: #f4f4f2;      /* primary text on dark */
+  --color-chalk-muted: #8a8a92;/* secondary text, captions */
+  --color-glass-glow: #eaf6ff; /* refraction/backdrop light for glass shards only */
+  --color-accent: #ff4e32;     /* the ONE splat accent — earned at beat 5, not before */
+  --color-accent-soft: #ff4e3226;
+
+  --font-display: var(--font-geist-sans);
+  --font-mono-kicker: var(--font-space-mono);
+  --font-body: var(--font-inter);
+}
+
+@theme inline {
+  --color-ink: var(--color-ink);
+  --color-ink-soft: var(--color-ink-soft);
+  --color-chalk: var(--color-chalk);
+  --color-chalk-muted: var(--color-chalk-muted);
+  --color-glass-glow: var(--color-glass-glow);
+  --color-accent: var(--color-accent);
+  --color-accent-soft: var(--color-accent-soft);
+  --font-display: var(--font-display);
+  --font-mono-kicker: var(--font-mono-kicker);
+  --font-body: var(--font-body);
+}
+
+body {
+  background: var(--color-ink);
+  color: var(--color-chalk);
+  font-family: var(--font-body);
+}
+
+/*
+  Liquid Glass card (Proof section) — the actual glass rendering (real-time
+  refraction, chromatic aberration, specular highlight) is WebGL now, see
+  ProofGlassCanvas.tsx + liquidGlassMaterial.ts: a CSS/SVG-filter attempt
+  hit a hard ceiling (Chrome-only, and even there a baked displacement map
+  can't respond as the live scene behind the glass changes). This class is
+  just the DOM card's structural fallback for browsers where WebGL fails
+  (paired with ProofGlassCanvas's own poster) — deliberately light, so it
+  doesn't visually compete with the WebGL layer sitting behind it when
+  that IS rendering.
+*/
+.liquid-glass-card {
+  border-radius: 2.75rem;
+  border: 1px solid color-mix(in srgb, var(--color-chalk) 15%, transparent);
+}
+
+/*
+  Custom cursor (CustomCursor.tsx). `cursor: none` only applies once JS has
+  actually mounted and added this class (never a static rule) — otherwise
+  a script failure would leave the user with no visible cursor at all.
+  Position is driven by a single `transform: translate()` per pointer
+  move — no layout, compositor-only.
+*/
+html.custom-cursor-active,
+html.custom-cursor-active * {
+  cursor: none;
+}
+/* Default cursor — always on, a plain translucent frosted circle (real
+   `backdrop-filter: blur()`, no SVG chromatic lens — that read as too
+   subtle/near-invisible at cursor size). Cheap: a single plain
+   backdrop-filter blur, not the multi-pass SVG displacement chain the
+   card lens uses. Faded out (not removed) whenever either hover state
+   below is active.
+
+   `backdrop-filter` itself is deliberately NOT set here — measured
+   directly (inspected the actual served/compiled CSS) that Lightning
+   CSS silently drops the unprefixed `backdrop-filter` declaration from
+   this rule at build time (kept only `-webkit-backdrop-filter`),
+   leaving the element with no real blur at all despite the source CSS
+   listing both. Every other backdrop-filter usage in this codebase
+   (cardGlass.ts, liquidGlassLens.ts) sets it via JS `element.style.
+   backdropFilter` instead of a static class rule — CustomCursor.tsx
+   does the same for this element for exactly that reason, not by
+   accident. */
+.custom-cursor-frosted {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  margin-top: -11px;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--color-chalk) 60%, transparent);
+  background: color-mix(in srgb, var(--color-chalk) 18%, transparent);
+  pointer-events: none;
+  z-index: 9999;
+  will-change: transform;
+  transition:
+    opacity 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+/* The footer is the one light (chalk-background) section on the site —
+   swap to ink-toned border/fill there instead, so the cursor doesn't
+   blend into it the way the default chalk-toned version does everywhere
+   else. Toggled by CustomCursor.tsx via `target.closest('footer')`. */
+.custom-cursor-frosted.is-on-light {
+  border-color: color-mix(in srgb, var(--color-ink) 55%, transparent);
+  background: color-mix(in srgb, var(--color-ink) 15%, transparent);
+}
+/* Link/button hover — grows to 48px (INVERT_DIAMETER), plain color
+   invert, deliberately no backdrop-filter at all (see the component's
+   own header comment for why this has to be a separate element). Hidden
+   (opacity 0) at rest; toggled to opacity 1 on hover via inline style. */
+.custom-cursor-invert {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 48px;
+  height: 48px;
+  margin-left: -24px;
+  margin-top: -24px;
+  border-radius: 9999px;
+  background: var(--color-chalk);
+  mix-blend-mode: difference;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 9999;
+  will-change: transform;
+  transition: opacity 0.2s ease;
+}
+/* Card hover — the real lens, same 48px size as .custom-cursor-invert
+   (CARD_LENS_DIAMETER in CustomCursor.tsx — down from an original 96px),
+   mounted only for the duration of a hover over a `[data-cursor="lens"]`
+   card. `display: none` at rest (toggled by JS, not just opacity) since
+   this one carries a genuine backdrop-filter cost that should stop
+   existing entirely between hovers, not just become invisible. */
+.custom-cursor-card-lens {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 48px;
+  height: 48px;
+  margin-left: -24px;
+  margin-top: -24px;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--color-chalk) 45%, transparent);
+  pointer-events: none;
+  z-index: 9999;
+  will-change: transform;
+}
+
+/* Resolution section's model video — it's a baked clip, not a real 3D
+   asset, so there's no camera/geometry left to orbit. A flat CSS
+   rotation on the whole frame is the closest thing to "spin the
+   model" available without the source mesh. Plain CSS, not GSAP —
+   this is a constant idle loop, not something scroll- or
+   scene-driven, so it doesn't need the ScrollTrigger authority. */
+@keyframes resolution-model-spin {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+/* SoundToggle's little wave-bar icon — a gentle idle wiggle only while
+   sound is actually on, echoing the noomo Waves.png/WavesOff.png
+   on/off distinction without reusing their asset. */
+@keyframes sound-bar {
+  0%,
+  100% {
+    transform: scaleY(0.5);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}

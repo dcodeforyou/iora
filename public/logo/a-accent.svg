@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1392 580">
+<g fill="#ff4e32" fill-rule="evenodd">
+<!-- i stem: exact footprint, subtle 4px corner cuts made smooth -->
+<path d="M64 184 H152 Q156 184 156 188 V564 Q156 568 152 568 H64 Q60 568 60 564 V188 Q60 184 64 184 Z"/>
+<!-- o: exact outer 400x384 rounded rect, r=80; inner opening exact extents, r=36 -->
+<path d="M324 184 H564 A80 80 0 0 1 644 264 V488 A80 80 0 0 1 564 568 H324 A80 80 0 0 1 244 488 V264 A80 80 0 0 1 324 184 Z
+M368 272 H520 A36 36 0 0 1 556 308 V440 A36 36 0 0 1 520 476 H368 A36 36 0 0 1 332 440 V308 A36 36 0 0 1 368 272 Z"/>
+<!-- r: preserve straight extents; smooth top-left transition only -->
+<path d="M980 184 H812
+A92 92 0 0 0 720 276
+V568 H800 V312
+A48 48 0 0 1 848 264
+H984 V184 Z"/>
+<!-- a: preserve exact outer silhouette and inner opening; smooth curved lower-left/top-left transitions -->
+<path d="M1040 184 H1316
+A64 64 0 0 1 1380 248
+V568 H1056
+A60 60 0 0 1 996 508
+V384
+A60 60 0 0 1 1056 324
+H1288 V264
+A16 16 0 0 0 1272 248
+H1036 V188
+Q1036 184 1040 184 Z
+M1104 400 H1288 V480 H1092
+A8 8 0 0 1 1084 472
+V428
+A28 28 0 0 1 1104 400 Z"/>
+<!-- dots: exact original positions and dimensions -->
+<path d="M12 52 H88 Q94 52 94 58 V130 Q94 136 88 136 H12 Q6 136 6 130 V58 Q6 52 12 52 Z"/>
+<path d="M132 52 H208 Q214 52 214 58 V130 Q214 136 208 136 H132 Q126 136 126 130 V58 Q126 52 132 52 Z"/>
+</g></svg>

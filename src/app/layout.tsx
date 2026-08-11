@@ -1,0 +1,83 @@
+import type { Metadata } from "next";
+import { Space_Mono, Inter } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import SmoothScroll from "@/lib/scroll/SmoothScroll";
+import CrtPowerOn from "@/components/site/CrtPowerOn";
+import CustomCursor from "@/components/site/CustomCursor";
+import SoundToggle from "@/components/site/SoundToggle";
+import WhatsAppButton from "@/components/site/WhatsAppButton";
+import "./globals.css";
+
+// Display: big statements, the shatter-revealed wordmark. Geist (Vercel,
+// SIL Open Font License — fully open, no commercial-license question at
+// all) instead of Bricolage Grotesque, which became the default "give it
+// personality" font of nearly every AI site generator through 2024-2025.
+const geistSans = GeistSans;
+
+// Kicker/mono: section eyebrows, stats, the CRT/glitch register. Doing the
+// same positioning work Azeret Mono does on notionlabs.in — technical,
+// internet-native — without literally reusing their font.
+const spaceMono = Space_Mono({
+  variable: "--font-space-mono",
+  weight: ["400", "700"],
+  subsets: ["latin"],
+});
+
+// Body: stays out of the way.
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "ïora — AI Ads & Websites",
+  description:
+    "iora is an AI ads and websites studio for brands that refuse to be scrolled past.",
+};
+
+export default function RootLayout({ children }: LayoutProps<"/">) {
+  return (
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${spaceMono.variable} ${inter.variable} h-full antialiased`}
+    >
+      <head>
+        {/* Runs synchronously as the browser parses <head>, before Lenis,
+            GSAP, or any React effect ever gets a chance to run — the
+            earliest possible point. This is a one-shot cinematic scroll
+            story (CRT power-on, marble drops, section-entrance
+            animations), not a content page anyone expects to resume
+            mid-scroll: every one of those entrance animations was built
+            assuming a fresh start from scrollY 0, and none of them
+            re-derive "what should my state already be, given I'm
+            mounting midway down the page" — a browser-restored scroll
+            position on refresh left them permanently out of sync with
+            where they visually were (CRT noise replaying, the Impact
+            marble vanishing, reported directly). `scrollRestoration =
+            "manual"` stops the browser from doing that restoration at
+            all; the immediate `scrollTo` covers the current load too,
+            not just future ones. next/script's variants are all deferred
+            (afterInteractive at the earliest) — too late here, since the
+            browser's own restoration has often already happened by then. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if("scrollRestoration" in history){history.scrollRestoration="manual";}window.scrollTo(0,0);`,
+          }}
+        />
+      </head>
+      {/* Plain block flow, not flex — a flex ancestor of a GSAP-pinned
+          section corrupts the pin-spacer's height calculation (confirmed:
+          isolated to the flex container alone, reproducible independent of
+          Lenis/StrictMode/overflow-hidden/absolute children). Full-height
+          sections stack correctly with ordinary block layout; flex was
+          never actually needed here. */}
+      <body className="min-h-full bg-ink text-chalk">
+        <CrtPowerOn />
+        <CustomCursor />
+        <SoundToggle />
+        <WhatsAppButton />
+        <SmoothScroll>{children}</SmoothScroll>
+      </body>
+    </html>
+  );
+}

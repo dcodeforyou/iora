@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1242 442" width="1242" height="442">
+  <title>ïora — filled chalk, corrected diaeresis</title>
+  <g fill="#ff4e32">
+    <!-- corrected ï dots: equal center distance from the i stem -->
+    <rect x="69" y="0" width="73" height="70" rx="4"/>
+    <rect x="169.5" y="0" width="74" height="70" rx="4"/>
+
+    <!-- i -->
+    <rect x="115" y="113" width="82" height="329"/>
+
+    <!-- o -->
+    <path d="M344 113
+             C305 113 273 145 273 184
+             V369
+             C273 408 305 440 344 440
+             H543
+             C582 440 614 408 614 369
+             V184
+             C614 145 582 113 543 113
+             Z"/>
+
+    <!-- r -->
+    <path d="M760 113
+             H905
+             V183
+             H786
+             C765 183 748 200 748 221
+             V441
+             H677
+             V196
+             C677 150 714 113 760 113
+             Z"/>
+
+    <!-- a -->
+    <path d="M948 113
+             H1184
+             C1216 113 1242 139 1242 171
+             V441
+             H969
+             C938 441 914 417 914 386
+             V284
+             C914 253 940 229 971 229
+             H1163
+             V183
+             H948
+             Z"/>
+  </g>
+</svg>
