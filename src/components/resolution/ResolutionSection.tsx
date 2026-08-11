@@ -93,17 +93,21 @@ export default function ResolutionSection() {
   return (
     <section
       data-cursor-bg="light"
-      // Mobile min-h trimmed (70vh -> 45vh) so this video + the full
-      // Footer below can both fit inside one mobile viewport without
-      // needing extra scroll past it — reported directly as a request.
-      // Desktop (sm+) still grows via flex-1 against the page's own
-      // Resolution+Footer flex wrapper (see page.tsx), which caps that
-      // combined pair at 100dvh - 5px — Resolution takes whatever's left
-      // after Footer's natural height, so a 5px sliver of Pitch's orange
-      // beat stays visible above both at max scroll, rather than
-      // Resolution+Footer together fully covering the viewport the
-      // instant Pitch's sticky pin releases.
-      className="relative min-h-[45vh] w-full overflow-hidden bg-chalk px-6 py-16 text-center sm:min-h-0 sm:flex-1"
+      // Mobile: a real aspect-[3/4] box, not an arbitrary min-h — the
+      // mobile video's own source is 720x960 (exactly 3:4), and sizing
+      // this section by height alone left it mismatched against that
+      // ratio, so `object-cover` below was cropping the video down
+      // rather than showing its true framing edge-to-edge (reported
+      // directly). aspect-ratio derives the box's height from its own
+      // width at exactly 3:4, matching the source exactly, so no crop is
+      // needed at all. Desktop (sm+) resets to auto and instead grows via
+      // flex-1 against the page's own Resolution+Footer flex wrapper (see
+      // page.tsx), which caps that combined pair at 100dvh - 5px —
+      // Resolution takes whatever's left after Footer's natural height,
+      // so a 5px sliver of Pitch's orange beat stays visible above both
+      // at max scroll, rather than Resolution+Footer together fully
+      // covering the viewport the instant Pitch's sticky pin releases.
+      className="relative aspect-[3/4] w-full overflow-hidden bg-chalk px-6 py-16 text-center sm:aspect-auto sm:min-h-0 sm:flex-1"
     >
       {/* Mobile-only full-bleed video — fills the entire section (the
           space between the pitch/orange beat above and Footer below).
