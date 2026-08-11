@@ -533,9 +533,23 @@ export default function PitchSection() {
           y: gsap.utils.interpolate(captured.y, target.y, eased),
         });
       },
-      onLeave: () => {
+      onLeave: (self) => {
         const marble = document.getElementById("impact-marble");
         if (!marble || marble.dataset.exited !== "true") return;
+        // Fast mobile flicks carry real native scroll momentum well past
+        // this trigger's own boundary before this callback even runs —
+        // ScrollTrigger's position checks are tied to requestAnimationFrame,
+        // not synchronous with touch/inertial scroll, so a hard enough
+        // flick can land scroll already partway into Resolution by the
+        // time "top top" is detected as crossed. Snapping straight back
+        // to the trigger's own end position — synchronously, before
+        // anything else in this callback runs — means the bounce->roll
+        // ->spread sequence (and the scroll lock it takes, see
+        // startIdleBounce's lockScroll) always engages at the correct
+        // spot instead of starting the sequence already scrolled past
+        // Pitch. Reported directly: fast mobile scroll skipping into the
+        // next section mid-animation, distorting the reveal.
+        getLenisInstance()?.scrollTo(self.end, { immediate: true, force: true });
         const target = getRestPoint();
         gsap.set(marble, { x: target.x, y: target.y });
         // First contact — "the marble's own landing... already reads as
