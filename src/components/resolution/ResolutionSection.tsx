@@ -29,6 +29,38 @@ export default function ResolutionSection() {
   const markRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const mobileVideoRef = useRef<HTMLVideoElement>(null);
+  const mobileVideoContainerRef = useRef<HTMLDivElement>(null);
+
+  // Mobile only, effectively for free — the container this observes is
+  // `sm:hidden` (display:none on desktop), which has no layout box at
+  // all, so IntersectionObserver simply never reports it intersecting
+  // there; no explicit breakpoint check needed. Pitch's own "Scroll" hint
+  // (see PitchSection's commitOrangeState) stays visible/opacity:1 for
+  // the entire rest of the page once Pitch commits to its orange state —
+  // by design, since Pitch's real content keeps that hint up as a cue
+  // that there's still pin distance left before it releases. But once
+  // this video is even partially in view, Pitch has visibly moved on —
+  // the hint sitting there any longer just overlaps the video, reported
+  // directly. Reaching into Pitch's DOM by id (not a shared ref/store)
+  // matches this codebase's own established cross-section signal pattern
+  // (see marble.dataset.formed/landed/exited elsewhere).
+  useEffect(() => {
+    const el = mobileVideoContainerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const hint = document.getElementById("pitch-scroll-hint");
+        if (!hint) return;
+        // Empty string (not "0") when NOT intersecting — hands control
+        // back to whatever Pitch's own commit/release logic already set,
+        // rather than fighting it with a competing hard value.
+        hint.style.opacity = entry.isIntersecting ? "0" : "";
+      },
+      { threshold: 0 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // Explicit JS play(), not just the bare `autoplay` attribute — every
   // other autoplaying video on this site (Hero, Proof's glimpse clips)
@@ -114,7 +146,7 @@ export default function ResolutionSection() {
           Plain, unaltered: no tint/overlay, no content on top of it —
           just the video. Desktop keeps the small circular spinning
           model + wordmark instead (see below, hidden on mobile). */}
-      <div className="absolute inset-0 z-0 block sm:hidden">
+      <div ref={mobileVideoContainerRef} className="absolute inset-0 z-0 block sm:hidden">
         <video
           ref={mobileVideoRef}
           src="/iora-footer.mp4"

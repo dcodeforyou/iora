@@ -793,6 +793,7 @@ export default function PitchSection() {
             imperatively rather than via a CSS class toggle. */}
         <div
           ref={scrollHintRef}
+          id="pitch-scroll-hint"
           className="pointer-events-none absolute bottom-8 left-1/2 -translate-x-1/2 font-mono-kicker text-[10px] uppercase tracking-[0.3em] text-chalk-muted opacity-0 transition-opacity duration-500"
         >
           Scroll
