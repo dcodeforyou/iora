@@ -62,26 +62,30 @@ export default function Footer() {
           <path d="M132 52 H208 Q214 52 214 58 V130 Q214 136 208 136 H132 Q126 136 126 130 V58 Q126 52 132 52 Z" />
         </svg>
       </div>
-      <div className="mx-auto flex max-w-5xl flex-col gap-8 sm:flex-row sm:justify-between">
+      <div className="mx-auto flex max-w-5xl flex-col gap-4 sm:flex-row sm:justify-between sm:gap-8">
         {/* `sm:contents` unwraps this row on desktop so Email and Menu
             become direct flex items alongside the iora column below,
             restoring the original three-column layout there without
             duplicating markup for the two breakpoints. */}
         <div className="flex justify-between gap-8 sm:contents">
-          {/* mb-14 (mobile only) — SoundToggle is a fixed bottom-6 left-6
+          {/* mb-8 (mobile only) — SoundToggle is a fixed bottom-6 left-6
               pill on every page, and this column sits in that same
               bottom-left corner once the footer (the true end of the
-              page) is scrolled into view. Without this clearance the
+              page) is scrolled into view. Without SOME clearance here the
               social icon row below sat right underneath/behind that
               floating button, confirmed directly as a real report — this
               lifts the whole column clear of it instead of guessing at a
-              tighter margin on just the icons. Desktop resets to mb-0:
+              tighter margin on just the icons. Trimmed from mb-14 (56px)
+              now that the footer's overall mobile height is intentionally
+              much shorter (see ResolutionSection + the outer gap above),
+              which already puts real distance between this column and the
+              true viewport bottom on its own. Desktop resets to mb-0:
               this column becomes a row-aligned flex item there (via the
               sm:contents unwrap above), where a lone bottom margin would
               throw off its baseline against the Menu/iora columns next
               to it, and the row-based layout doesn't sit as close to the
               true bottom edge anyway. */}
-          <div className="mb-14 flex flex-col gap-2 sm:mb-0">
+          <div className="mb-8 flex flex-col gap-2 sm:mb-0">
             <p className="font-mono-kicker text-[11px] uppercase tracking-[0.2em] text-ink/50">Email</p>
             <a
               href="mailto:theiorateam@gmail.com"

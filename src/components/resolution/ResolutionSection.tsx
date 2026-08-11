@@ -28,6 +28,20 @@ const VIDEO_PLAYBACK_RATE = 0.3;
 export default function ResolutionSection() {
   const markRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const mobileVideoRef = useRef<HTMLVideoElement>(null);
+
+  // Explicit JS play(), not just the bare `autoplay` attribute — every
+  // other autoplaying video on this site (Hero, Proof's glimpse clips)
+  // already does this rather than trusting `autoplay` alone, which has
+  // reportedly been unreliable here specifically (mobile-only report: this
+  // video not playing at all). `.catch(() => {})` since a muted+playsInline
+  // play() call shouldn't ever actually reject, but isn't worth surfacing
+  // if it somehow does.
+  useEffect(() => {
+    const video = mobileVideoRef.current;
+    if (!video) return;
+    void video.play().catch(() => {});
+  }, []);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -79,17 +93,17 @@ export default function ResolutionSection() {
   return (
     <section
       data-cursor-bg="light"
-      // Mobile keeps its original fixed min-h-[70vh] untouched — the
-      // full-bleed mobile video below was already right, this section's
-      // sizing on mobile isn't part of the desktop-only peek/height
-      // changes. Desktop (sm+) instead grows via flex-1 against the
-      // page's own Resolution+Footer flex wrapper (see page.tsx), which
-      // caps that combined pair at 100dvh - 5px — Resolution takes
-      // whatever's left after Footer's natural height, so a 5px sliver of
-      // Pitch's orange beat stays visible above both at max scroll,
-      // rather than Resolution+Footer together fully covering the
-      // viewport the instant Pitch's sticky pin releases.
-      className="relative min-h-[70vh] w-full overflow-hidden bg-chalk px-6 py-16 text-center sm:min-h-0 sm:flex-1"
+      // Mobile min-h trimmed (70vh -> 45vh) so this video + the full
+      // Footer below can both fit inside one mobile viewport without
+      // needing extra scroll past it — reported directly as a request.
+      // Desktop (sm+) still grows via flex-1 against the page's own
+      // Resolution+Footer flex wrapper (see page.tsx), which caps that
+      // combined pair at 100dvh - 5px — Resolution takes whatever's left
+      // after Footer's natural height, so a 5px sliver of Pitch's orange
+      // beat stays visible above both at max scroll, rather than
+      // Resolution+Footer together fully covering the viewport the
+      // instant Pitch's sticky pin releases.
+      className="relative min-h-[45vh] w-full overflow-hidden bg-chalk px-6 py-16 text-center sm:min-h-0 sm:flex-1"
     >
       {/* Mobile-only full-bleed video — fills the entire section (the
           space between the pitch/orange beat above and Footer below).
@@ -98,6 +112,7 @@ export default function ResolutionSection() {
           model + wordmark instead (see below, hidden on mobile). */}
       <div className="absolute inset-0 z-0 block sm:hidden">
         <video
+          ref={mobileVideoRef}
           src="/iora-footer.mp4"
           autoPlay
           loop

@@ -176,7 +176,7 @@ export default function ImpactSection() {
       // earned at the snap, not before (see AGENTS.md).
       playInterference();
       gsap.to(chars, { opacity: 1, duration: 0.25, stagger: 0.015 });
-      gsap.to(glow, { opacity: 0.18, duration: 0.6, ease: "power1.out" });
+      gsap.to(glow, { opacity: 0.18, duration: 0.35, ease: "power1.out" });
       // Chromatic aberration (red/cyan fringe) only while unstable —
       // cleared instantly at the snap below.
       gsap.set(chars, {
@@ -217,9 +217,12 @@ export default function ImpactSection() {
       });
 
       // Hold the unstable state for a beat before the impact resolves it —
-      // kept short so fast scrollers actually see the resolution land
-      // before they've scrolled past it.
-      settleCall = gsap.delayedCall(0.6, () => {
+      // kept short (0.6 -> 0.35) so fast scrollers actually see the
+      // resolution land before they've scrolled past it. These are real-
+      // time durations, not scroll-tied, so a fast scroll can outrun a
+      // long one entirely — reported directly as the marble/glow "lagging"
+      // behind fast scrolling. Purely a duration change, no added work.
+      settleCall = gsap.delayedCall(0.35, () => {
         waveTweens.forEach((t) => t.kill());
         waveTweens = [];
 
@@ -412,7 +415,7 @@ export default function ImpactSection() {
       // smaller, denser, hotter point, not fading away.
       tl.to(glow, {
         scale: 0.1,
-        duration: 0.4,
+        duration: 0.25,
         ease: "power2.in",
       })
         // Hard cut, not a cross-fade — glow disappears the exact same
@@ -443,8 +446,10 @@ export default function ImpactSection() {
         // The hold itself — text has resolved, but the glow shouldn't
         // start visibly condensing until a genuine beat after that, not
         // the same instant, or it reads as one animation continuing
-        // rather than two distinct beats.
-        handoffWait = gsap.delayedCall(0.4, playHandoff);
+        // rather than two distinct beats. Shortened (0.4 -> 0.2) along
+        // with the other real-time holds in this file — same "fast scroll
+        // outruns a fixed-duration beat" reasoning as settleCall above.
+        handoffWait = gsap.delayedCall(0.2, playHandoff);
       } else {
         handoffWait = gsap.delayedCall(0.1, attemptHandoff);
       }

@@ -13,7 +13,7 @@ import {
   HERO_IMPACT_TIME,
   HERO_SIGNAL_BLEND_DURATION,
 } from "@/lib/scroll/heroEntry";
-import { initHeroVideo, playHeroVideo } from "@/lib/scroll/heroVideo";
+import { initHeroVideo, playHeroVideo, getActiveVideoKey } from "@/lib/scroll/heroVideo";
 import { initHeroMusic } from "@/lib/scroll/heroMusic";
 
 // Real telegram convention: "STOP" stood in for a period, since
@@ -445,6 +445,19 @@ export default function CrtPowerOn() {
           ease: "power1.in",
           onUpdate: () => jumpTo(proxy.p),
         });
+        // Mobile-only extra hold right after the screen-crack lands, before
+        // the shards actually start flying — reported directly as the
+        // explosion burst starting too soon on mobile. Doesn't touch
+        // approachDuration above (that's precisely synced to the video's
+        // own real impact frame, confirmed identical across both source
+        // cuts — shifting it would desync the crack from the video kick),
+        // just adds a pure pause between the crack landing and the slomo
+        // explode segment starting, mobile only. `{}, { duration }` — a
+        // real no-op tween on an empty object, purely to consume timeline
+        // time, since GSAP timelines don't have a bare "wait" method.
+        if (getActiveVideoKey() === "mobile") {
+          scrollTl.to({}, { duration: 0.7 });
+        }
         // The slomo segment — real shard-explosion window, given real
         // extra time rather than being buried in the fast middle of a
         // longer uniform ease.
