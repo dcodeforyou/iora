@@ -55,6 +55,15 @@ export default function Nav() {
       <div className="pointer-events-auto flex items-center gap-6">
         <Link
           href="/work"
+          // Opens in a new tab, but only from the main site — leaving "/"
+          // for /work in the same tab loses the whole CRT/Hero sequence
+          // state behind you. Already ON /work (pillEnabled), this same
+          // Nav also renders there (it's a shared component, not
+          // homepage-only) — clicking "Work" while already in that
+          // section should behave like normal same-tab navigation, not
+          // spawn a redundant new tab pointed at where you already are.
+          target={pillEnabled ? undefined : "_blank"}
+          rel={pillEnabled ? undefined : "noopener noreferrer"}
           className="hidden font-mono-kicker text-[11px] uppercase tracking-[0.2em] text-chalk transition-[color,letter-spacing] duration-300 ease-out hover:tracking-[0.35em] hover:text-accent sm:inline-block"
         >
           Work

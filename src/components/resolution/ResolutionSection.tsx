@@ -79,7 +79,17 @@ export default function ResolutionSection() {
   return (
     <section
       data-cursor-bg="light"
-      className="relative flex min-h-[70vh] w-full flex-col items-center justify-center gap-6 overflow-hidden bg-chalk px-6 py-24 text-center"
+      // Mobile keeps its original fixed min-h-[70vh] untouched — the
+      // full-bleed mobile video below was already right, this section's
+      // sizing on mobile isn't part of the desktop-only peek/height
+      // changes. Desktop (sm+) instead grows via flex-1 against the
+      // page's own Resolution+Footer flex wrapper (see page.tsx), which
+      // caps that combined pair at 100dvh - 5px — Resolution takes
+      // whatever's left after Footer's natural height, so a 5px sliver of
+      // Pitch's orange beat stays visible above both at max scroll,
+      // rather than Resolution+Footer together fully covering the
+      // viewport the instant Pitch's sticky pin releases.
+      className="relative min-h-[70vh] w-full overflow-hidden bg-chalk px-6 py-16 text-center sm:min-h-0 sm:flex-1"
     >
       {/* Mobile-only full-bleed video — fills the entire section (the
           space between the pitch/orange beat above and Footer below).
@@ -97,12 +107,15 @@ export default function ResolutionSection() {
           className="h-full w-full object-cover"
         />
       </div>
-      {/* The model video — sits in normal flow now, not absolutely
-          centered over the copy, so the "AI ads & websites" line
-          reads as sitting below the object rather than overlapping
-          it. Contained + circular rather than full-section, matching
-          the "one memorable object" per-beat discipline the rest of
-          the site follows.
+      {/* The model video — absolutely centered on the section's own box
+          (not sharing flex-flow space with the wordmark below it), so it
+          reads as sitting at the true visual center of the screen rather
+          than being pushed up by the copy stacked underneath it. The
+          wordmark now anchors to the bottom of the section independently
+          (see markRef below) instead of directly following this in
+          normal flow. Contained + circular rather than full-section,
+          matching the "one memorable object" per-beat discipline the
+          rest of the site follows.
 
           The clip's own background (~#e8e6e0) is a slightly warmer/
           darker off-white than --color-chalk, so a hard circular crop
@@ -114,7 +127,7 @@ export default function ResolutionSection() {
           There's no source mesh for this (only the rendered clip), so
           real orbit/camera control isn't possible — this is a flat CSS
           spin of the whole frame instead. */}
-      <div className="pointer-events-none relative z-10 hidden h-[40vh] w-[40vh] max-w-[70vw] sm:block">
+      <div className="pointer-events-none absolute inset-0 z-10 hidden items-center justify-center sm:flex">
         <video
           ref={videoRef}
           src="/model-loop.mp4"
@@ -127,10 +140,13 @@ export default function ResolutionSection() {
             maskImage: "radial-gradient(circle, black 45%, transparent 72%)",
             WebkitMaskImage: "radial-gradient(circle, black 45%, transparent 72%)",
           }}
-          className="h-full w-full animate-[resolution-model-spin_32s_linear_infinite] object-cover opacity-60 motion-reduce:animate-none"
+          className="h-[55vh] w-[55vh] max-w-[75vw] animate-[resolution-model-spin_32s_linear_infinite] object-cover opacity-60 motion-reduce:animate-none"
         />
       </div>
-      <div ref={markRef} className="relative z-10 hidden flex-col items-center gap-4 opacity-0 sm:flex">
+      <div
+        ref={markRef}
+        className="absolute bottom-10 left-1/2 z-10 hidden -translate-x-1/2 flex-col items-center gap-4 opacity-0 sm:flex"
+      >
         {/* The real ïora mark — trying variant A here instead of D
             (same shape Nav shows on hover), same treatment otherwise:
             static, no hover-swap/spin/home-link, colored to match the

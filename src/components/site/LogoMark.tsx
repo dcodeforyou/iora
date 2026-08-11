@@ -2,6 +2,7 @@
 
 import { useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { gsap } from "@/lib/scroll/gsapSetup";
 import { getNavBg, subscribeNavBg, type NavBg } from "@/lib/nav/navBackground";
 
@@ -27,6 +28,17 @@ const COLORS: Record<NavBg, { rest: string; hover: string }> = {
  */
 export default function LogoMark() {
   const navBg = useSyncExternalStore(subscribeNavBg, getNavBg, () => "dark" as NavBg);
+  const pathname = usePathname();
+  // A real, hard navigation (plain <a>, not next/link's soft client-side
+  // transition) — but ONLY from /work and its subpages. The landing page
+  // is a one-shot cinematic (CRT boot, Hero's shard sequence, everything
+  // keyed off a fresh module load — see layout.tsx and CrtPowerOn.tsx's
+  // own doc comments on why this component never truly unmounts). A soft
+  // Link transition from /work back to "/" would land on an already-
+  // "entered" Hero with no boot replay, not the fresh landing experience
+  // clicking the logo/home mark should mean. From anywhere already on the
+  // main site, a normal soft Link is fine (and better — no full reload).
+  const forceReload = pathname.startsWith("/work");
   const [hovered, setHovered] = useState(false);
   const dot1Ref = useRef<SVGGElement>(null);
   const dot2Ref = useRef<SVGGElement>(null);
@@ -57,8 +69,14 @@ export default function LogoMark() {
     });
   };
 
+  // Plain "a" forces the real reload described above; next/link's own
+  // component is used unchanged everywhere else. Both accept the exact
+  // same props used below, so swapping which one renders doesn't need two
+  // copies of this whole SVG-heavy JSX tree.
+  const LogoLink = forceReload ? "a" : Link;
+
   return (
-    <Link
+    <LogoLink
       href="/"
       aria-label="Home"
       className="pointer-events-auto relative inline-block h-[17px] w-[48px] shrink-0 sm:h-[19px] sm:w-[52px]"
@@ -122,6 +140,6 @@ export default function LogoMark() {
           <path d="M132 52 H208 Q214 52 214 58 V130 Q214 136 208 136 H132 Q126 136 126 130 V58 Q126 52 132 52 Z" />
         </g>
       </svg>
-    </Link>
+    </LogoLink>
   );
 }

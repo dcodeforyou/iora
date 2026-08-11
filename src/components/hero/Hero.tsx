@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { gsap, ScrollTrigger } from "@/lib/scroll/gsapSetup";
 import HeroScene from "@/components/scene/HeroScene";
-import { getLenisInstance } from "@/lib/scroll/lenisInstance";
+import { getLenisInstance, onLenisUnlock } from "@/lib/scroll/lenisInstance";
 import { HERO_PIN_VH_MULTIPLIER, HERO_SCREEN_BREAK_END } from "@/lib/scroll/heroEntry";
 import { HERO_MUSIC_ARTIST, HERO_MUSIC_TITLE, onHeroMusicStart } from "@/lib/scroll/heroMusic";
 
@@ -17,6 +17,7 @@ export default function Hero() {
   const pinRef = useRef<HTMLElement>(null);
   const headlineRef = useRef<HTMLDivElement>(null);
   const creditRef = useRef<HTMLDivElement>(null);
+  const scrollHintRef = useRef<HTMLDivElement>(null);
 
   // Plain mutable object, not a ref — ScrollTrigger's onUpdate writes
   // `.value` outside of render every scroll tick; HeroScene's Orchestrator
@@ -34,6 +35,26 @@ export default function Hero() {
     if (!credit) return;
     return onHeroMusicStart(() => {
       gsap.to(credit, { opacity: 1, duration: 0.8, ease: "power1.out" });
+    });
+  }, []);
+
+  // Same idea for the "Scroll" hint — hidden by default (see the JSX
+  // below), revealed only once scroll is genuinely unlocked. It used to be
+  // visible unconditionally from mount, which meant it sat there telling a
+  // visitor to scroll during the ENTIRE CRT boot/no-signal/entry sequence,
+  // while scroll was actually still locked — CrtPowerOn's own centered
+  // boot content doesn't cover Hero's bottom-of-viewport hint, so it read
+  // through the whole time. Reduced-motion users never have scroll locked
+  // at all (see the early-return branch below), so they get it immediately.
+  useEffect(() => {
+    const hint = scrollHintRef.current;
+    if (!hint) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      hint.style.opacity = "1";
+      return;
+    }
+    return onLenisUnlock(() => {
+      gsap.to(hint, { opacity: 1, duration: 0.6, ease: "power1.out" });
     });
   }, []);
 
@@ -163,7 +184,15 @@ export default function Hero() {
         </h1>
       </div>
 
-      <div className="pointer-events-none absolute bottom-8 left-1/2 -translate-x-1/2 font-mono-kicker text-[10px] uppercase tracking-[0.3em] text-chalk-muted">
+      {/* Hidden until scroll genuinely unlocks (see the onLenisUnlock
+          effect above) — telling a visitor to scroll while scroll is
+          still locked behind the CRT boot/entry sequence was actively
+          misleading. */}
+      <div
+        ref={scrollHintRef}
+        className="pointer-events-none absolute bottom-8 left-1/2 -translate-x-1/2 font-mono-kicker text-[10px] uppercase tracking-[0.3em] text-chalk-muted"
+        style={{ opacity: 0 }}
+      >
         Scroll
       </div>
 

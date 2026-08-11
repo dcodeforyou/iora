@@ -65,10 +65,27 @@ export function lockLenisScroll() {
   window.addEventListener("keydown", preventScrollKeydown, { passive: false, capture: true });
 }
 
+const unlockListeners = new Set<() => void>();
+
+/**
+ * Fires every time unlockLenisScroll() actually runs — Hero.tsx uses this
+ * to hold its own "Scroll" hint hidden until scroll is genuinely available
+ * again, rather than showing it unconditionally from mount. It used to be
+ * visible underneath/around the CRT boot overlay (CrtPowerOn's own centered
+ * content doesn't cover Hero's bottom-of-viewport hint), telling a user
+ * "scroll" while scroll was actually still locked — confirmed directly as
+ * a real, misleading report.
+ */
+export function onLenisUnlock(listener: () => void): () => void {
+  unlockListeners.add(listener);
+  return () => unlockListeners.delete(listener);
+}
+
 export function unlockLenisScroll() {
   locked = false;
   instance?.start();
   window.removeEventListener("wheel", preventScrollInput, { capture: true });
   window.removeEventListener("touchmove", preventScrollInput, { capture: true });
   window.removeEventListener("keydown", preventScrollKeydown, { capture: true });
+  unlockListeners.forEach((listener) => listener());
 }
