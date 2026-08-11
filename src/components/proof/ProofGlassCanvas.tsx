@@ -28,6 +28,28 @@ function usePrefersReducedMotion() {
   return isClient && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+/** Same isClient-gated pattern as usePrefersReducedMotion above — this
+ * now decides whether a structurally DIFFERENT element renders at all
+ * (<GlassPoster/> vs <Canvas>, not just a prop value on an unconditionally-
+ * rendered Canvas), so a raw `typeof window !== "undefined"` check (this
+ * codebase's OWN earlier version of this exact hook, before this fix) is
+ * unsafe here: it evaluates `false` during SSR but the real value on the
+ * very first CLIENT render too (window is genuinely defined by then),
+ * mismatching what was server-rendered and breaking hydration — confirmed
+ * directly (a real hydration error, reproducible on any mobile viewport).
+ * useSyncExternalStore's server-snapshot argument is what makes the FIRST
+ * client render match the server (both false), with the real value only
+ * applying on the following render, after hydration has already
+ * succeeded. */
+function useIsMobile() {
+  const isClient = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  );
+  return isClient && window.innerWidth < HERO_VIDEO_BREAKPOINT;
+}
+
 export const CARD_COUNT = 3;
 
 /** Plain mutable state ProofSection writes into from its GSAP onUpdate —
@@ -175,7 +197,7 @@ function GlassCards({
  * visible full-viewport backdrop, and hands it to the glass cards for
  * refraction — one source, shown two ways, so what bends through the
  * glass is genuinely the same content visible around it. */
-function ProofGlassScene({ state, isMobile }: { state: ProofGlassState; isMobile: boolean }) {
+function ProofGlassScene({ state }: { state: ProofGlassState }) {
   const { gl, camera, size, clock } = useThree();
   // HalfFloatType, not the default 8-bit UnsignedByteType — the
   // background shader's gradients are subtle enough (soft diffuse
@@ -185,24 +207,20 @@ function ProofGlassScene({ state, isMobile }: { state: ProofGlassState; isMobile
   // separate genuine geometry fixes (exponential smin, simpler wobble)
   // — a real tell it was never the shape's math, it was precision.
   //
-  // Mobile renders this at a fraction of the canvas's own resolution
-  // (0.6x) — this is the single most expensive thing in this whole
-  // canvas (a full-viewport procedural shader: several noise() calls,
-  // pow()/normalize()/dot() work, run for every pixel, every frame,
-  // continuously for as long as any part of the ~500vh Proof section is
-  // on screen), and reducing it directly cuts total shaded-pixel count
-  // quadratically. The result is upscaled via the GPU's own bilinear
-  // texture filtering when sampled (both as the visible backdrop and
-  // through the glass refraction) — soft, blurry, glowing content like
-  // this hides that softness well; this isn't sharp detail. Reported
-  // repeatedly as still-severe mobile lag even after the earlier
-  // antialias/DPR trim, which wasn't enough on its own.
-  const fboScale = isMobile ? 0.6 : 1;
-  const fbo = useFBO(
-    Math.max(1, Math.round(size.width * fboScale)),
-    Math.max(1, Math.round(size.height * fboScale)),
-    { type: THREE.HalfFloatType },
-  );
+  // This whole Canvas is desktop-only now (see ProofGlassCanvas below) —
+  // real-time WebGL refraction is the single most expensive thing on
+  // this page (a full-viewport procedural shader run every frame,
+  // continuously, for the whole time any part of the ~500vh Proof
+  // section is on screen), and repeated real-device reports confirmed
+  // even an aggressively DPR/resolution-trimmed version of it still
+  // wasn't smooth on mobile GPUs. Mobile gets a CSS-only card (see
+  // ProofSection's own continuously-playing glimpse video) instead of a
+  // cheaper WebGL variant — the earlier mobile-only DPR/FBO-scale
+  // tuning that used to live here is gone; there's no mobile path left
+  // to tune.
+  const fbo = useFBO(Math.max(1, Math.round(size.width)), Math.max(1, Math.round(size.height)), {
+    type: THREE.HalfFloatType,
+  });
   // The background shader does its own light math in linear space (sums
   // of THREE.Color-derived values, which ColorManagement already stores
   // as linear internally) and writes raw, unencoded output — so the FBO
@@ -296,11 +314,7 @@ export default function ProofGlassCanvas({ state }: { state: ProofGlassState }) 
   const containerRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
-  // Same resolved-once convention as heroVideo.ts/HeroScene.tsx.
-  const isMobile = useMemo(
-    () => typeof window !== "undefined" && window.innerWidth < HERO_VIDEO_BREAKPOINT,
-    [],
-  );
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const el = containerRef.current;
@@ -314,7 +328,19 @@ export default function ProofGlassCanvas({ state }: { state: ProofGlassState }) 
 
   return (
     <div ref={containerRef} className="pointer-events-none absolute inset-0">
-      {reducedMotion ? (
+      {reducedMotion || isMobile ? (
+        // Mobile gets the cheap CSS poster instead of the WebGL canvas —
+        // real-time refraction here (a full-viewport procedural
+        // background shader plus per-card chromatic-aberration sampling,
+        // run every frame) was reported as still-severely laggy on real
+        // mobile GPUs across multiple rounds of DPR/resolution/antialias
+        // tuning; the marble that lands on these cards is a trivial CSS
+        // transform with zero GPU cost of its own, so its own lag was
+        // strong evidence of real GPU contention, not something another
+        // tuning pass alone was going to fix. Each card's own visual
+        // interest on mobile now comes from its glimpse video playing
+        // continuously instead (see ProofSection — no hover to gate it
+        // on, on a touch device, so it just plays). Desktop is untouched.
         <GlassPoster />
       ) : (
         <Canvas
@@ -328,26 +354,13 @@ export default function ProofGlassCanvas({ state }: { state: ProofGlassState }) 
           // >1x DPR, which already does its own supersampling-like
           // smoothing) was doubling down on the same job for limited
           // visible gain.
-          //
-          // Mobile drops further still, to a flat 1.0 — a deliberate,
-          // explicit exception to AGENTS.md's stated 1.5-2 DPR floor.
-          // That floor exists to avoid a blurry/budget look on
-          // high-density panels; it's being knowingly traded off here
-          // because this exact section (glass cards + the marble
-          // landing on them) has been reported as severely laggy on
-          // mobile across multiple rounds of fixes, including after the
-          // antialias/DPR trim above — the marble itself is a trivial
-          // CSS transform with zero GPU cost of its own, so its lag is
-          // strong evidence of real GPU contention stealing frame budget
-          // from the whole page, not something a softer material fix
-          // alone was solving. Desktop is untouched.
-          dpr={isMobile ? 1 : [1, 1.5]}
+          dpr={[1, 1.5]}
           gl={{ antialias: false, alpha: true }}
           frameloop={isVisible ? "always" : "never"}
           fallback={<GlassPoster />}
         >
           <ResizeSyncedCamera />
-          <ProofGlassScene state={state} isMobile={isMobile} />
+          <ProofGlassScene state={state} />
         </Canvas>
       )}
     </div>

@@ -6,6 +6,7 @@ import { gsap, ScrollTrigger } from "@/lib/scroll/gsapSetup";
 import { PROOF_CARD_TOP_VH } from "@/lib/scroll/marbleGeometry";
 import ProofGlassCanvas, { CARD_COUNT, createProofGlassState } from "./ProofGlassCanvas";
 import { playGlassBounce } from "@/lib/sound/sfx";
+import { HERO_VIDEO_BREAKPOINT } from "@/lib/scroll/heroEntry";
 
 const CARD_RADIUS_PX = 44; // matches the WebGL card mesh's uRadius default
 
@@ -149,12 +150,19 @@ export default function ProofSection() {
   // ProofGlassCanvas. Per AGENTS.md: Three.js state goes through
   // refs/uniforms, never triggers a React re-render.
   const glassState = useMemo(() => createProofGlassState(), []);
-  // One ref per card's hover-glimpse video — played/paused imperatively
+  // One ref per card's glimpse video. Desktop: played/paused imperatively
   // (CSS :hover alone can't start video playback) on real pointer enter/
-  // leave, not autoplaying in the background the whole time a visitor is
-  // on the page: three simultaneously-decoding videos sitting off-screen
-  // for the entire session is real, avoidable battery/CPU cost for a
-  // glimpse that's invisible (opacity-0) until actually hovered anyway.
+  // leave — not autoplaying in the background the whole time a visitor is
+  // on the page, since three simultaneously-decoding videos sitting
+  // off-screen for the entire session is real, avoidable battery/CPU cost
+  // for a glimpse that's invisible (opacity-0) until actually hovered.
+  // Mobile has no hover at all, and no WebGL glass canvas either (see
+  // ProofGlassCanvas — replaced with a CSS poster there, real-time
+  // refraction was reported as still-severely laggy on real mobile GPUs
+  // across multiple rounds of tuning) — the glimpse video IS each card's
+  // visual interest on mobile now, so it just plays continuously (see the
+  // mobile-only effect below), matching the CSS below that shows it at
+  // rest instead of gating it behind a hover that can't happen there.
   const glimpseVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const handleGlimpseEnter = (index: number) => {
     const video = glimpseVideoRefs.current[index];
@@ -169,6 +177,21 @@ export default function ProofSection() {
   const handleGlimpseLeave = (index: number) => {
     glimpseVideoRefs.current[index]?.pause();
   };
+
+  // Mobile-only continuous playback — explicit JS play(), same reasoning
+  // as ResolutionSection's own mobile video: the bare `autoplay` HTML
+  // attribute has been unreliable on this site's mobile testing, and
+  // adding it unconditionally would also autoplay these on desktop
+  // (undesired — desktop keeps its existing hover-gated behavior
+  // untouched). Checked once at mount, matching this codebase's other
+  // resolved-once mobile breakpoint checks.
+  useEffect(() => {
+    if (window.innerWidth >= HERO_VIDEO_BREAKPOINT) return;
+    glimpseVideoRefs.current.forEach((video) => {
+      if (!video) return;
+      void video.play().catch(() => {});
+    });
+  }, []);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -796,7 +819,11 @@ export default function ProofSection() {
                   playsInline
                   preload="metadata"
                   aria-hidden="true"
-                  className="absolute inset-0 z-0 h-full w-full object-cover opacity-0 grayscale-[90%] transition-opacity duration-500 ease-out group-hover:opacity-60"
+                  // Visible at rest on mobile (opacity-60, no hover there
+                  // to gate it on — it plays continuously instead, see
+                  // the mobile-only effect above), hover-gated on desktop
+                  // exactly as before (sm:opacity-0 sm:group-hover:...).
+                  className="absolute inset-0 z-0 h-full w-full object-cover opacity-60 grayscale-[90%] transition-opacity duration-500 ease-out sm:opacity-0 sm:group-hover:opacity-60"
                 />
                 {/* A soft top-down scrim, ONLY over the text's own region
                     (not the full card) — the glimpse video sits right
@@ -805,10 +832,11 @@ export default function ProofSection() {
                     read as noticeably harder to pick out than at rest.
                     This darkens just enough behind the copy to hold
                     contrast without flattening the glimpse into a solid
-                    block. */}
+                    block. Visible at rest on mobile (matching the video
+                    above), hover-gated on desktop as before. */}
                 <div
                   aria-hidden="true"
-                  className="pointer-events-none absolute inset-x-0 top-0 z-[5] h-2/3 bg-gradient-to-b from-ink/70 via-ink/35 to-transparent opacity-0 transition-opacity duration-500 ease-out group-hover:opacity-100"
+                  className="pointer-events-none absolute inset-x-0 top-0 z-[5] h-2/3 bg-gradient-to-b from-ink/70 via-ink/35 to-transparent opacity-100 transition-opacity duration-500 ease-out sm:opacity-0 sm:group-hover:opacity-100"
                 />
                 <div className="relative z-10 flex h-full flex-col justify-start gap-3 p-8 pt-16 sm:p-10 sm:pt-20">
                   <span className="font-mono-kicker text-[11px] uppercase tracking-[0.2em] text-chalk-muted">
@@ -821,7 +849,7 @@ export default function ProofSection() {
                     {service.desc}
                   </p>
                 </div>
-                <span className="pointer-events-none absolute inset-x-8 bottom-8 z-10 font-mono-kicker text-[11px] uppercase tracking-[0.25em] text-accent opacity-0 transition-opacity duration-500 ease-out group-hover:opacity-100 sm:inset-x-10">
+                <span className="pointer-events-none absolute inset-x-8 bottom-8 z-10 font-mono-kicker text-[11px] uppercase tracking-[0.25em] text-accent opacity-100 transition-opacity duration-500 ease-out sm:inset-x-10 sm:opacity-0 sm:group-hover:opacity-100">
                   View case study →
                 </span>
               </Link>
