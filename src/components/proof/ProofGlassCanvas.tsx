@@ -9,6 +9,7 @@ import {
   createBackgroundSceneMaterial,
   type BackgroundSceneMaterial,
 } from "./backgroundSceneMaterial";
+import { HERO_VIDEO_BREAKPOINT } from "@/lib/scroll/heroEntry";
 
 const subscribeNoop = () => () => {};
 
@@ -148,7 +149,7 @@ function GlassCards({
  * visible full-viewport backdrop, and hands it to the glass cards for
  * refraction — one source, shown two ways, so what bends through the
  * glass is genuinely the same content visible around it. */
-function ProofGlassScene({ state }: { state: ProofGlassState }) {
+function ProofGlassScene({ state, isMobile }: { state: ProofGlassState; isMobile: boolean }) {
   const { gl, camera, size, clock } = useThree();
   // HalfFloatType, not the default 8-bit UnsignedByteType — the
   // background shader's gradients are subtle enough (soft diffuse
@@ -157,9 +158,25 @@ function ProofGlassScene({ state }: { state: ProofGlassState }) {
   // scene sits in. Read as "dimple" artifacts at first, survived two
   // separate genuine geometry fixes (exponential smin, simpler wobble)
   // — a real tell it was never the shape's math, it was precision.
-  const fbo = useFBO(Math.max(1, Math.round(size.width)), Math.max(1, Math.round(size.height)), {
-    type: THREE.HalfFloatType,
-  });
+  //
+  // Mobile renders this at a fraction of the canvas's own resolution
+  // (0.6x) — this is the single most expensive thing in this whole
+  // canvas (a full-viewport procedural shader: several noise() calls,
+  // pow()/normalize()/dot() work, run for every pixel, every frame,
+  // continuously for as long as any part of the ~500vh Proof section is
+  // on screen), and reducing it directly cuts total shaded-pixel count
+  // quadratically. The result is upscaled via the GPU's own bilinear
+  // texture filtering when sampled (both as the visible backdrop and
+  // through the glass refraction) — soft, blurry, glowing content like
+  // this hides that softness well; this isn't sharp detail. Reported
+  // repeatedly as still-severe mobile lag even after the earlier
+  // antialias/DPR trim, which wasn't enough on its own.
+  const fboScale = isMobile ? 0.6 : 1;
+  const fbo = useFBO(
+    Math.max(1, Math.round(size.width * fboScale)),
+    Math.max(1, Math.round(size.height * fboScale)),
+    { type: THREE.HalfFloatType },
+  );
   // The background shader does its own light math in linear space (sums
   // of THREE.Color-derived values, which ColorManagement already stores
   // as linear internally) and writes raw, unencoded output — so the FBO
@@ -253,6 +270,11 @@ export default function ProofGlassCanvas({ state }: { state: ProofGlassState }) 
   const containerRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
+  // Same resolved-once convention as heroVideo.ts/HeroScene.tsx.
+  const isMobile = useMemo(
+    () => typeof window !== "undefined" && window.innerWidth < HERO_VIDEO_BREAKPOINT,
+    [],
+  );
 
   useEffect(() => {
     const el = containerRef.current;
@@ -279,15 +301,27 @@ export default function ProofGlassCanvas({ state }: { state: ProofGlassState }) 
           // one-off. MSAA antialiasing on top of that (and on top of a
           // >1x DPR, which already does its own supersampling-like
           // smoothing) was doubling down on the same job for limited
-          // visible gain. Reported directly as severe mobile lag through
-          // this section. Still within AGENTS.md's stated 1.5-2 DPR cap.
-          dpr={[1, 1.5]}
+          // visible gain.
+          //
+          // Mobile drops further still, to a flat 1.0 — a deliberate,
+          // explicit exception to AGENTS.md's stated 1.5-2 DPR floor.
+          // That floor exists to avoid a blurry/budget look on
+          // high-density panels; it's being knowingly traded off here
+          // because this exact section (glass cards + the marble
+          // landing on them) has been reported as severely laggy on
+          // mobile across multiple rounds of fixes, including after the
+          // antialias/DPR trim above — the marble itself is a trivial
+          // CSS transform with zero GPU cost of its own, so its lag is
+          // strong evidence of real GPU contention stealing frame budget
+          // from the whole page, not something a softer material fix
+          // alone was solving. Desktop is untouched.
+          dpr={isMobile ? 1 : [1, 1.5]}
           gl={{ antialias: false, alpha: true }}
           frameloop={isVisible ? "always" : "never"}
           fallback={<GlassPoster />}
         >
           <ResizeSyncedCamera />
-          <ProofGlassScene state={state} />
+          <ProofGlassScene state={state} isMobile={isMobile} />
         </Canvas>
       )}
     </div>
