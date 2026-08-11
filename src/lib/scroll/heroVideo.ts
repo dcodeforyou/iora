@@ -27,6 +27,22 @@ const SOURCES = {
 
 export type HeroVideoKey = keyof typeof SOURCES;
 
+// iOS Safari (and iOS WebViews generally) silently ignore programmatic
+// writes to HTMLMediaElement.volume entirely — a long-documented Apple
+// platform restriction, not a bug in this codebase. `.muted` is the only
+// property that actually has any effect there. setHeroVideoFocus's volume
+// tween below genuinely works on desktop/Android (smooth fade), but was a
+// complete no-op on iOS — confirmed by report: hero audio stayed fully
+// audible on an iPhone even scrolled well past Hero. `applyMuted` combines
+// the sound-toggle's own mute state with an iOS-only out-of-view mute flag
+// so both concerns can independently ask for silence without one clobbering
+// the other's assignment to the same property.
+const isIOS = typeof navigator !== "undefined" && /iP(hone|od|ad)/.test(navigator.userAgent);
+let outOfViewMuted = false;
+function applyMuted(video: HTMLVideoElement) {
+  video.muted = !isSoundEnabled() || outOfViewMuted;
+}
+
 let activeKey: HeroVideoKey | null = null;
 
 /** Resolved once (module-level cache) on first call, client-only. */
@@ -93,11 +109,12 @@ export function initHeroVideo(): HTMLVideoElement {
   // autoplay-policy reasoning), so the video starts muted for the same
   // reason, and un-mutes live the instant the user flips the toggle, no
   // matter when that happens relative to the video already playing.
-  video.muted = !isSoundEnabled();
+  // Routed through applyMuted() (see below setHeroVideoFocus) rather than a
+  // bare assignment, so this combines correctly with the iOS out-of-view
+  // mute workaround instead of one silently overwriting the other.
+  applyMuted(video);
   video.defaultMuted = video.muted;
-  subscribeSound((enabled) => {
-    video.muted = !enabled;
-  });
+  subscribeSound(() => applyMuted(video));
   video.playsInline = true;
   video.preload = "auto";
   // Off-screen but genuinely attached to the document — some browsers
@@ -228,4 +245,13 @@ export function setHeroVideoFocus(inView: boolean): void {
     duration: 0.8,
     ease: "power1.inOut",
   });
+  // See applyMuted's own comment above — the volume tween above is a no-op
+  // on iOS, so this is the part that actually silences it there. Left
+  // as a hard cut (not synced to the 0.8s fade) rather than trying to time
+  // a mute toggle mid-tween: iOS gets a real, working silence instead of
+  // an unheard smooth fade, which is strictly better even if less elegant.
+  if (isIOS) {
+    outOfViewMuted = !inView;
+    applyMuted(video);
+  }
 }

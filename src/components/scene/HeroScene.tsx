@@ -11,7 +11,13 @@ import StudioLights from "./StudioLights";
 import CrtScreenShard from "./CrtScreenShard";
 import { isChromiumBrowser } from "@/components/pitch/liquidGlassLens";
 import { playShatter, startTvStatic, stopTvStatic } from "@/lib/sound/sfx";
-import { signalBlend, HERO_EXPLODE_START, HERO_EXPLODE_SETTLE, HERO_SCREEN_BREAK_END } from "@/lib/scroll/heroEntry";
+import {
+  signalBlend,
+  HERO_EXPLODE_START,
+  HERO_EXPLODE_SETTLE,
+  HERO_SCREEN_BREAK_END,
+  HERO_VIDEO_BREAKPOINT,
+} from "@/lib/scroll/heroEntry";
 import { initHeroVideo, setHeroVideoFocus } from "@/lib/scroll/heroVideo";
 import { setHeroMusicFocus } from "@/lib/scroll/heroMusic";
 
@@ -462,6 +468,16 @@ export default function HeroScene({ progress }: HeroSceneProps) {
   // assuming pointermove alone is enough on every device.
   const pointerState = useMemo(() => ({ x: 0, y: 0 }), []);
 
+  // Same breakpoint/resolved-once convention as heroVideo.ts's own
+  // getActiveVideoKey — reused here to trim this canvas's GPU cost on
+  // mobile only (lower DPR ceiling, no MSAA). Desktop keeps its original
+  // settings untouched; mobile-only per explicit request, not a general
+  // perf tune.
+  const isMobile = useMemo(
+    () => typeof window !== "undefined" && window.innerWidth < HERO_VIDEO_BREAKPOINT,
+    [],
+  );
+
   // IntersectionObserver-gated per AGENTS.md ("pause its render loop
   // entirely when scrolled off-screen") — same pattern already
   // established in ProofGlassCanvas.tsx. This canvas was missing it
@@ -522,9 +538,21 @@ export default function HeroScene({ progress }: HeroSceneProps) {
   return (
     <div ref={containerRef} className="absolute inset-0">
       <Canvas
-        dpr={[1, 2]}
+        // Mobile-only trim (see isMobile above) — this is the single
+        // heaviest moment on the page: the shard-explosion auto-sequence
+        // (see CrtPowerOn's handleEnter) drives a real scroll position on
+        // every animation-frame tick WHILE the hero video is simultaneously
+        // decoding/playing, all racing this canvas's own render. Reported
+        // as the explosion visually finishing early/too fast on mobile —
+        // a GSAP tween that runs its full real-world duration regardless of
+        // frame rate will still look like it "jumps" to its end state early
+        // if the device is dropping frames along the way, since fewer
+        // intermediate frames actually get painted. Desktop keeps its
+        // original [1,2] + antialias:true untouched. Mobile's [1,1.5] is
+        // still within AGENTS.md's 1.5-2 DPR cap.
+        dpr={isMobile ? [1, 1.5] : [1, 2]}
         camera={{ position: [0, 0, 2.9], fov: 40 }}
-        gl={{ antialias: true, alpha: true }}
+        gl={{ antialias: !isMobile, alpha: true }}
         frameloop={isVisible ? "always" : "never"}
         fallback={<HeroPoster />}
       >

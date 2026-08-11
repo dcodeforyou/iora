@@ -188,9 +188,17 @@ export default function Hero() {
           effect above) — telling a visitor to scroll while scroll is
           still locked behind the CRT boot/entry sequence was actively
           misleading. */}
+      {/* Mobile only: bottom-left instead of centered — the music credit
+          (below) sits bottom-right at a small size but a long string
+          ("Future Club — Perturbator"), which on narrow mobile widths
+          reached far enough in from the right edge to visibly overlap a
+          centered "Scroll" hint. Mirroring the credit's placement on the
+          opposite corner guarantees no overlap. Desktop (sm+) reverts to
+          the original centered position — reported as mobile-only, and
+          the extra width there already gives plenty of clearance. */}
       <div
         ref={scrollHintRef}
-        className="pointer-events-none absolute bottom-8 left-1/2 -translate-x-1/2 font-mono-kicker text-[10px] uppercase tracking-[0.3em] text-chalk-muted"
+        className="pointer-events-none absolute bottom-8 left-6 font-mono-kicker text-[10px] uppercase tracking-[0.3em] text-chalk-muted sm:left-1/2 sm:-translate-x-1/2"
         style={{ opacity: 0 }}
       >
         Scroll

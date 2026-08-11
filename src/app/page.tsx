@@ -26,8 +26,17 @@ export default function Home() {
           absorbs the remaining space via flex-1; Footer keeps its natural
           height. Lives outside <main> (a plain block per AGENTS.md's
           flex-ancestor-breaks-GSAP-pin rule) so this flex wrapper is never
-          an ancestor of Hero's pin:true ScrollTrigger section. */}
-      <div className="flex min-h-[calc(100dvh-5px)] flex-col">
+          an ancestor of Hero's pin:true ScrollTrigger section.
+
+          Desktop (sm+) ONLY — mobile keeps ResolutionSection's own fixed
+          min-h-[70vh] (see there) with neither child set to flex-1, so
+          forcing this same min-height on mobile too left neither child
+          able to absorb the extra space, rendering as a large empty gap
+          between Footer's real content and the viewport's true bottom
+          edge (reported directly: a big blank space above the fixed
+          Sound/WhatsApp buttons). Mobile's flex column now sizes purely
+          to its own natural content height instead. */}
+      <div className="flex flex-col sm:min-h-[calc(100dvh-5px)]">
         <ResolutionSection />
         <Footer />
       </div>
