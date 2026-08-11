@@ -187,10 +187,10 @@ export default function PitchSection() {
         },
       });
       idleBounce = tl;
-      tl.to(marble, { y: restY - IDLE_BOUNCE_HEIGHT, duration: 0.42, ease: "power2.out" })
+      tl.to(marble, { y: restY - IDLE_BOUNCE_HEIGHT, duration: 0.34, ease: "power2.out" })
         .to(marble, {
           y: restY,
-          duration: 0.42,
+          duration: 0.34,
           ease: "power2.in",
         })
         // Second (and last) contact of this beat — damped/soft, matching
@@ -629,7 +629,7 @@ export default function PitchSection() {
         x: 0,
         y: 0,
         rotation: `+=${rollDegrees}`,
-        duration: 0.6,
+        duration: 0.5,
         ease: "power2.inOut",
       })
         // Motion-masked fade-out into the lens, right as the roll
@@ -638,7 +638,7 @@ export default function PitchSection() {
         // the whole transition, fading it in and back out on its own;
         // an explicit opacity-in tween here would fight that curve the
         // instant the drive tween's onUpdate starts firing.)
-        .to(marble, { scale: 0.4, opacity: 0, duration: 0.25, ease: "power1.out" }, "-=0.15")
+        .to(marble, { scale: 0.4, opacity: 0, duration: 0.2, ease: "power1.out" }, "-=0.15")
         // One continuous drive value grows the lens, fades it out once
         // it's done its work, and keeps growing the plain reveal past
         // that — all smoothly, no hard cuts between phases.
@@ -649,8 +649,11 @@ export default function PitchSection() {
           // fast enough to read as an immediate, confident reveal rather
           // than a sluggish wipe, slow enough (at 60fps that's still ~66
           // frames) that the chromatic ring and refraction are legible,
-          // not a single-frame flash.
-          duration: 1.1,
+          // not a single-frame flash. Trimmed modestly to 0.9s per a
+          // later request ("bounce and spread time is quite a lot") —
+          // still comfortably above single-frame-flash territory, just a
+          // bit tighter than the original tuning.
+          duration: 0.9,
           ease: "none",
           onStart: () => playLiquidSpread(),
           onUpdate: applyDrive,
@@ -668,7 +671,7 @@ export default function PitchSection() {
             // scroll down stays inert while committed (normal scroll to
             // the footer), but scrolling back UP still needs to un-commit
             // and reverse it, which only holdTrigger's onUpdate can do.
-            gsap.delayedCall(0.5, () => {
+            gsap.delayedCall(0.35, () => {
               if (formed && drive.progress > 0.9) {
                 committed = true;
                 commitOrangeState();
