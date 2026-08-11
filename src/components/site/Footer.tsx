@@ -38,7 +38,7 @@ export default function Footer() {
   const onWorkRoute = pathname.startsWith("/work");
 
   return (
-    <footer id="contact" data-cursor-bg="light" className="w-full bg-chalk px-6 pb-6 pt-8 text-ink sm:px-10 sm:pb-8 sm:pt-8">
+    <footer id="contact" data-cursor-bg="light" className="w-full bg-chalk px-6 pb-14 pt-8 text-ink sm:px-10 sm:pb-16 sm:pt-8">
       <div className="mx-auto max-w-5xl">
         {/* Big static mark, ahead of the contact details below — variant
             A geometry this time (same shape Nav shows on hover, and
