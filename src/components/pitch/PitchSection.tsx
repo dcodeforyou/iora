@@ -97,22 +97,58 @@ export default function PitchSection() {
     // out of sync with the frozen page underneath it.
     //
     // Scrolling during the lock isn't just discarded, either — the
-    // attempted wheel input is captured while locked and replayed the
-    // instant it releases, so it reads as "the page held for the beat,
-    // then picked up your scroll right where you left off," not as
+    // attempted wheel/touch input is captured while locked and replayed
+    // the instant it releases, so it reads as "the page held for the
+    // beat, then picked up your scroll right where you left off," not as
     // input getting silently eaten.
+    //
+    // Touch handling matches lenisInstance.ts's own lockLenisScroll —
+    // `overflow: hidden` alone is a known-leaky block for TOUCH/momentum
+    // scroll on iOS Safari specifically (confirmed there the hard way:
+    // direct wheel-input instrumentation showed real scroll still moving
+    // while "locked"), which is exactly why that function uses
+    // capture-phase listeners + `stopImmediatePropagation`, not just
+    // `preventDefault`. This lock used to only capture `wheel` at all —
+    // real mobile touch-scroll during this beat wasn't just unblocked,
+    // it was also never captured for replay, silently discarding
+    // whatever scroll gesture happened to land during the lock and
+    // leaving Lenis's tracked position out of sync with anything that
+    // DID leak through — reported as scroll later capping short of the
+    // true bottom of the page.
     let pendingScrollDelta = 0;
     const captureWheel = (e: WheelEvent) => {
       pendingScrollDelta += e.deltaY;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    };
+    let lastTouchY = 0;
+    const captureTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (touch) lastTouchY = touch.clientY;
+    };
+    const captureTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch) return;
+      // Swiping up (finger moves toward smaller clientY) is a scroll-DOWN
+      // gesture — matches wheel's own deltaY sign convention (positive =
+      // scroll down) so both feed the same pendingScrollDelta correctly.
+      pendingScrollDelta += lastTouchY - touch.clientY;
+      lastTouchY = touch.clientY;
+      e.preventDefault();
+      e.stopImmediatePropagation();
     };
     const lockScroll = () => {
       getLenisInstance()?.stop();
       document.documentElement.style.overflow = "hidden";
       pendingScrollDelta = 0;
-      window.addEventListener("wheel", captureWheel, { passive: true });
+      window.addEventListener("wheel", captureWheel, { passive: false, capture: true });
+      window.addEventListener("touchstart", captureTouchStart, { passive: true, capture: true });
+      window.addEventListener("touchmove", captureTouchMove, { passive: false, capture: true });
     };
     const unlockScroll = () => {
-      window.removeEventListener("wheel", captureWheel);
+      window.removeEventListener("wheel", captureWheel, { capture: true });
+      window.removeEventListener("touchstart", captureTouchStart, { capture: true });
+      window.removeEventListener("touchmove", captureTouchMove, { capture: true });
       document.documentElement.style.overflow = "";
       getLenisInstance()?.start();
       if (pendingScrollDelta !== 0) {
