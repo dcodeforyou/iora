@@ -146,7 +146,22 @@ export default function ImpactSection() {
       impactTimeline?.kill();
       impactTimeline = null;
       isPlaying = false;
-      gsap.set(glow, { opacity: 0 });
+      // `scale: 1.25` explicitly, not just opacity — this element's
+      // resting scale comes from a Tailwind class (scale-125), but
+      // ONCE any GSAP tween has ever touched `scale` on it (the
+      // condense-to-marble effect shrinks it to 0.1; that same effect's
+      // resetHandoff widens it back to 1.25), GSAP writes a real inline
+      // `transform` that permanently overrides the class for the rest
+      // of the session — this reset used to only clear opacity, so a
+      // scroll pattern that left that OTHER effect's tween mid-flight or
+      // stuck (e.g. rapid scroll in/out/in again) could carry a stale,
+      // wrong scale into the next fresh playSequence cycle: opacity
+      // fades in correctly, but at the WRONG size — confirmed directly
+      // as the reported "hard edge glow filling the screen" (you're
+      // only seeing the center of a much-bigger-than-intended gradient,
+      // which is why the visible edge looks hard — it's actually just
+      // the screen's own edge, not the gradient's).
+      gsap.set(glow, { opacity: 0, scale: 1.25 });
       gsap.set(chars, { opacity: 0, x: 0, y: 0, textShadow: "none" });
       gsap.set(mark, { opacity: 0, scale: 0.92 });
       gsap.set(shockwave, { opacity: 0, scale: 0 });
@@ -587,8 +602,13 @@ export default function ImpactSection() {
           ref={glowRef}
           className="pointer-events-none absolute h-[60vmin] w-[60vmin] scale-125 rounded-full"
           style={{
+            // Brightened — the previous stops (65% max) read as faint
+            // and dull (reported directly). Kept the same multi-stop
+            // gradual taper (still no near-100%-opaque stop right at
+            // the center, which was the ORIGINAL "hard ball" problem),
+            // just meaningfully more saturated at every stop.
             background:
-              "radial-gradient(circle, color-mix(in srgb, var(--color-accent) 65%, transparent) 0%, color-mix(in srgb, var(--color-accent) 48%, transparent) 18%, color-mix(in srgb, var(--color-accent) 30%, transparent) 38%, color-mix(in srgb, var(--color-accent) 12%, transparent) 58%, transparent 78%)",
+              "radial-gradient(circle, color-mix(in srgb, var(--color-accent) 92%, transparent) 0%, color-mix(in srgb, var(--color-accent) 78%, transparent) 18%, color-mix(in srgb, var(--color-accent) 52%, transparent) 38%, color-mix(in srgb, var(--color-accent) 22%, transparent) 58%, transparent 78%)",
           }}
         />
         <div
