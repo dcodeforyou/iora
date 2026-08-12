@@ -202,14 +202,14 @@ export default function Hero() {
         style={{ opacity: 0, filter: "blur(10px)" }}
       >
         <h1 className="max-w-4xl font-display text-4xl font-bold leading-[1.05] text-chalk [text-shadow:0_1px_0_rgba(11,12,16,0.7),0_4px_14px_rgba(11,12,16,0.45),0_16px_40px_rgba(11,12,16,0.4)] sm:text-6xl md:text-7xl">
-          {/* Mobile-only: forced onto its own line, italic + accent —
-              desktop keeps the original single-color, naturally-wrapping
-              treatment (sm:not-italic sm:text-chalk reverts both, and the
-              <br> is display:none at sm+ so desktop's own wrap behavior
-              is untouched). */}
+          {/* Italic + accent on "the noise." now applies on every
+              breakpoint (per direct request, web included). The forced
+              line break stays mobile-only (<br> is display:none at sm+)
+              — desktop keeps its own natural wrap behavior, just with
+              this span's color/style now matching mobile's. */}
           We break through{" "}
           <br className="sm:hidden" />
-          <span className="italic text-accent sm:not-italic sm:text-chalk">the noise.</span>
+          <span className="italic text-accent">the noise.</span>
         </h1>
       </div>
 
