@@ -703,23 +703,36 @@ export default function PitchSection() {
 
       const tl = gsap.timeline();
       revealSequence = tl;
-      // Real roll to center — rotation synced to distance traveled, an
-      // actual roll, matching the same physics used for the marble's
-      // earlier CTA-roll beat.
-      tl.to(marble, {
-        x: 0,
-        y: 0,
-        rotation: `+=${rollDegrees}`,
-        duration: 0.5,
-        ease: "power2.inOut",
-      })
-        // Motion-masked fade-out into the lens, right as the roll
-        // finishes — no separate waiting beat. (lensEl's own opacity is
-        // NOT tweened here — applyDrive's bump curve, below, owns it for
-        // the whole transition, fading it in and back out on its own;
-        // an explicit opacity-in tween here would fight that curve the
-        // instant the drive tween's onUpdate starts firing.)
-        .to(marble, { scale: 0.4, opacity: 0, duration: 0.2, ease: "power1.out" }, "-=0.15")
+      if (isMobile) {
+        // Mobile already drops straight to screen-center (see
+        // getRestPoint/descentTrigger's onLeave) — rollDistance and
+        // rollDegrees above are both guaranteed 0 here, so the roll
+        // tween desktop uses below would be a pure no-op that STILL
+        // burns its own full 0.5s doing nothing visible, reading as a
+        // dead pause/hesitation right before the spread (reported
+        // directly: "still taking a bounce like little before spread").
+        // Skipped entirely — straight into the fade-into-lens + spread.
+        tl.to(marble, { scale: 0.4, opacity: 0, duration: 0.2, ease: "power1.out" });
+      } else {
+        // Real roll to center — rotation synced to distance traveled, an
+        // actual roll, matching the same physics used for the marble's
+        // earlier CTA-roll beat.
+        tl.to(marble, {
+          x: 0,
+          y: 0,
+          rotation: `+=${rollDegrees}`,
+          duration: 0.5,
+          ease: "power2.inOut",
+        })
+          // Motion-masked fade-out into the lens, right as the roll
+          // finishes — no separate waiting beat. (lensEl's own opacity is
+          // NOT tweened here — applyDrive's bump curve, below, owns it for
+          // the whole transition, fading it in and back out on its own;
+          // an explicit opacity-in tween here would fight that curve the
+          // instant the drive tween's onUpdate starts firing.)
+          .to(marble, { scale: 0.4, opacity: 0, duration: 0.2, ease: "power1.out" }, "-=0.15");
+      }
+      tl
         // One continuous drive value grows the lens, fades it out once
         // it's done its work, and keeps growing the plain reveal past
         // that — all smoothly, no hard cuts between phases.

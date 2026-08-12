@@ -105,6 +105,45 @@ function useBackgroundScene() {
   return { scene, material, meshRef };
 }
 
+/** Mobile-only: JUST the background bubble shader (see
+ * backgroundSceneMaterial.ts), rendered directly as the main scene — no
+ * FBO round-trip (there's no card refraction here to feed a texture
+ * to, so skipping straight to a normal render pass instead of
+ * background-to-FBO-then-blit-a-second-mesh cuts a whole redundant
+ * render entirely), no per-card chromatic-aberration sampling. Real
+ * iOS-style frosted glass needs something worth blurring behind it —
+ * backdrop-filter operates on the actual composited pixels, so this
+ * canvas sitting behind the cards is exactly what their own
+ * backdrop-blur (see ProofSection's .liquid-glass-card classes) picks
+ * up. Replaces the plain CSS GlassPoster gradient, reported directly
+ * as looking cheap next to the real multicolor form desktop gets. */
+function ProofBackgroundScene({ state }: { state: ProofGlassState }) {
+  const { size, clock } = useThree();
+  const material = useMemo<BackgroundSceneMaterial>(() => createBackgroundSceneMaterial(), []);
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  useFrame(() => {
+    if (meshRef.current) meshRef.current.scale.set(size.width, size.height, 1);
+    const u = material.uniforms;
+    u.uResolution.value.set(size.width, size.height);
+    u.uGlowCenter.value.set(state.glowCenter.x, state.glowCenter.y);
+    u.uGlowIntensity.value = state.glowIntensity;
+    u.uGlow2Center.value.set(state.glow2Center.x, state.glow2Center.y);
+    u.uGlow2Intensity.value = state.glow2Intensity;
+    u.uTime.value = clock.elapsedTime;
+  });
+
+  useEffect(() => {
+    return () => material.dispose();
+  }, [material]);
+
+  return (
+    <mesh ref={meshRef} material={material}>
+      <planeGeometry args={[1, 1]} />
+    </mesh>
+  );
+}
+
 function GlassCards({
   state,
   backgroundTexture,
@@ -328,20 +367,30 @@ export default function ProofGlassCanvas({ state }: { state: ProofGlassState }) 
 
   return (
     <div ref={containerRef} className="pointer-events-none absolute inset-0">
-      {reducedMotion || isMobile ? (
-        // Mobile gets the cheap CSS poster instead of the WebGL canvas —
-        // real-time refraction here (a full-viewport procedural
-        // background shader plus per-card chromatic-aberration sampling,
-        // run every frame) was reported as still-severely laggy on real
-        // mobile GPUs across multiple rounds of DPR/resolution/antialias
-        // tuning; the marble that lands on these cards is a trivial CSS
-        // transform with zero GPU cost of its own, so its own lag was
-        // strong evidence of real GPU contention, not something another
-        // tuning pass alone was going to fix. Each card's own visual
-        // interest on mobile now comes from its glimpse video playing
-        // continuously instead (see ProofSection — no hover to gate it
-        // on, on a touch device, so it just plays). Desktop is untouched.
+      {reducedMotion ? (
         <GlassPoster />
+      ) : isMobile ? (
+        // Real-time full refraction (background-to-FBO + per-card
+        // chromatic-aberration sampling) was reported as still-severely
+        // laggy on real mobile GPUs across multiple rounds of DPR/
+        // resolution/antialias tuning. But the plain CSS GlassPoster
+        // gradient that replaced it was ALSO reported directly as
+        // looking cheap — so mobile now gets a middle ground: just the
+        // background bubble shader (ProofBackgroundScene above), no FBO
+        // round-trip and no card refraction at all, a fraction of the
+        // full setup's cost. The cards' own backdrop-blur frosted glass
+        // (see ProofSection) picks this up as real content to blur,
+        // which is the whole point of a frosted-glass look.
+        <Canvas
+          orthographic
+          dpr={1}
+          gl={{ antialias: false, alpha: true }}
+          frameloop={isVisible ? "always" : "never"}
+          fallback={<GlassPoster />}
+        >
+          <ResizeSyncedCamera />
+          <ProofBackgroundScene state={state} />
+        </Canvas>
       ) : (
         <Canvas
           orthographic

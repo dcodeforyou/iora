@@ -4,6 +4,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { gsap, ScrollTrigger } from "@/lib/scroll/gsapSetup";
 import { playInterference, playImpactHit } from "@/lib/sound/sfx";
+import { HERO_VIDEO_BREAKPOINT } from "@/lib/scroll/heroEntry";
 
 const subscribeNoop = () => () => {};
 
@@ -123,6 +124,9 @@ export default function ImpactSection() {
       return;
     }
 
+    // Resolved once — same convention as heroVideo.ts's getActiveVideoKey.
+    const isMobile = window.innerWidth < HERO_VIDEO_BREAKPOINT;
+
     let waveTweens: gsap.core.Tween[] = [];
     let settleCall: gsap.core.Tween | null = null;
     let impactTimeline: gsap.core.Timeline | null = null;
@@ -171,12 +175,23 @@ export default function ImpactSection() {
       delete section.dataset.textSettled;
 
       // Letters appear quickly, already unstable — the jitter starts as
-      // soon as each letter is visible, not after a clean entrance. A
-      // faint, still-building glow sits underneath — the full wash is
-      // earned at the snap, not before (see AGENTS.md).
+      // soon as each letter is visible, not after a clean entrance.
+      // Desktop: a faint, still-building glow sits underneath — the full
+      // wash is earned at the snap, not before (see AGENTS.md). Mobile:
+      // the glow already read as "correct" at this exact moment on real
+      // devices, and the later build-then-snap made it look like it was
+      // flickering/changing along with the unstable text — reported
+      // directly. Mobile instead goes straight to its full/resolved
+      // opacity right here and stays completely untouched (no jitter-
+      // tied changes at all) until it condenses into the marble later —
+      // ONLY the words themselves flicker, never the glow.
       playInterference();
       gsap.to(chars, { opacity: 1, duration: 0.25, stagger: 0.015 });
-      gsap.to(glow, { opacity: 0.18, duration: 0.35, ease: "power1.out" });
+      gsap.to(glow, {
+        opacity: isMobile ? 1 : 0.18,
+        duration: 0.35,
+        ease: "power1.out",
+      });
       // Chromatic aberration (red/cyan fringe) only while unstable —
       // cleared instantly at the snap below.
       gsap.set(chars, {
@@ -265,8 +280,16 @@ export default function ImpactSection() {
             opacity: 1,
             duration: 0.1,
             ease: "power2.out",
-          })
-          .to(glow, { opacity: 1, duration: 0.25, ease: "power2.out" }, "<")
+          });
+        // Mobile: glow was already brought to its full/resolved opacity
+        // at the very start of playSequence (see below) and never
+        // touched again until it condenses into the marble — no jump
+        // here, since there's nothing left to jump. Desktop keeps the
+        // original faint-build -> full-snap-at-impact behavior.
+        if (!isMobile) {
+          tl.to(glow, { opacity: 1, duration: 0.25, ease: "power2.out" }, "<");
+        }
+        tl
           // `.call()`, not a synchronous playImpactHit() alongside this
           // tween's own JS — this whole timeline is built once (inside
           // the 0.6s delayedCall) then plays back; a plain function call

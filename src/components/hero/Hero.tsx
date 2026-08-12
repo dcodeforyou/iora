@@ -108,11 +108,15 @@ export default function Hero() {
         // line rising into view with scroll rather than just fading in
         // place. `inset(topInset% 0 0 0)`: at t=0, 100% is clipped from
         // the top (nothing visible); at t=1, 0% is clipped (fully
-        // visible). Desktop keeps its original translateY+blur treatment
+        // visible). Layered with a real translateY (a genuine rise from
+        // below its resting position, not just the clip-mask uncovering
+        // it in place — "come from bottom of screen to mid," per direct
+        // feedback) and opacity/blur, all driven by the same `t`.
+        // Desktop keeps its original, smaller translateY+blur treatment
         // untouched below.
         headline.style.clipPath = `inset(${(1 - t) * 100}% 0 0 0)`;
         headline.style.filter = `blur(${(1 - t) * 4}px)`;
-        headline.style.transform = "none";
+        headline.style.transform = `translateY(${(1 - t) * 56}px)`;
       } else {
         headline.style.filter = `blur(${(1 - t) * 10}px)`;
         headline.style.transform = `translateY(${(1 - t) * 16}px)`;

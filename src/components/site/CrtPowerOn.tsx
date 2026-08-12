@@ -291,14 +291,20 @@ export default function CrtPowerOn() {
         // message itself.
         tl.to(signalLost, { opacity: 1, duration: 0.3, ease: "power1.out" }, "+=0.15");
         // The entry button — the actual end of the automatic boot
-        // sequence now. Fades in after signal-lost, then becomes
-        // clickable (`pointerEvents: "auto"` only set once fully
-        // visible, so a click can't land mid-fade-in). Nothing beyond
+        // sequence now. Same flicker-catch entrance AttentionSection's
+        // own words use (a few jagged opacity swings before settling),
+        // not a plain fade — reads as "catching a signal" like the rest
+        // of this boot sequence, rather than a generic UI fade-in. Then
+        // becomes clickable (`pointerEvents: "auto"` only set once fully
+        // visible, so a click can't land mid-flicker). Nothing beyond
         // this in the timeline: the sequence just stops here and waits,
         // scroll still locked, until handleEnter fires.
-        tl.to(button, { opacity: 1, duration: 0.4, ease: "power1.out" }, "+=0.2").set(button, {
-          pointerEvents: "auto",
-        });
+        tl.to(button, { opacity: 0.5, duration: 0.045 }, "+=0.2")
+          .to(button, { opacity: 0.04, duration: 0.035 })
+          .to(button, { opacity: 0.65, duration: 0.045 })
+          .to(button, { opacity: 0.08, duration: 0.035 })
+          .to(button, { opacity: 1, duration: 0.32, ease: "power2.out" })
+          .set(button, { pointerEvents: "auto" });
       });
     });
 
