@@ -22,9 +22,10 @@ const MARK_DOTS = [
 ];
 
 export default async function Image() {
-  const [geistRegular, geistBold] = await Promise.all([
+  const [geistRegular, geistBold, geistBoldItalic] = await Promise.all([
     readFile(join(process.cwd(), "node_modules/geist/dist/fonts/geist-sans/Geist-Regular.ttf")),
     readFile(join(process.cwd(), "node_modules/geist/dist/fonts/geist-sans/Geist-Bold.ttf")),
+    readFile(join(process.cwd(), "node_modules/geist/dist/fonts/geist-sans/Geist-BoldItalic.ttf")),
   ]);
 
   return new ImageResponse(
@@ -37,13 +38,18 @@ export default async function Image() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "#0b0c10",
+          // Chalk background, matching Resolution's own "hard tonal
+          // pivot to white" beat rather than the ink-dark treatment
+          // most of the rest of the site uses — reads cleaner as a
+          // link-preview card, which renders on its own regardless of
+          // the surrounding app's light/dark theme anyway.
+          backgroundColor: "#f4f4f2",
           position: "relative",
         }}
       >
-        {/* Ambient accent glow — same radial-gradient-as-glow technique
-            used for ImpactSection's own marble condense, not a blur
-            filter (Satori has no filter support anyway). */}
+        {/* Ambient accent glow — same subtle bg-accent/8-style touch
+            ResolutionSection itself uses on its own chalk background,
+            not the stronger dark-bg glow this card used before. */}
         <div
           style={{
             position: "absolute",
@@ -53,7 +59,7 @@ export default async function Image() {
             height: 640,
             borderRadius: "50%",
             background:
-              "radial-gradient(circle, rgba(255,78,50,0.55) 0%, rgba(255,78,50,0.18) 35%, rgba(255,78,50,0) 70%)",
+              "radial-gradient(circle, rgba(255,78,50,0.16) 0%, rgba(255,78,50,0.05) 45%, rgba(255,78,50,0) 70%)",
             display: "flex",
           }}
         />
@@ -66,13 +72,15 @@ export default async function Image() {
             height: 560,
             borderRadius: "50%",
             background:
-              "radial-gradient(circle, rgba(244,244,242,0.06) 0%, rgba(244,244,242,0) 70%)",
+              "radial-gradient(circle, rgba(11,12,16,0.05) 0%, rgba(11,12,16,0) 70%)",
             display: "flex",
           }}
         />
 
         {/* Signature wordmark, top-left — small, not dominant, matching
-            how the real site treats it (a signature, not the headline). */}
+            how the real site treats it (a signature, not the headline).
+            Accent-on-chalk, the exact same color pairing Footer.tsx's
+            own mobile-only mark already uses on this same background. */}
         <div style={{ position: "absolute", top: 64, left: 72, display: "flex" }}>
           <svg width={168} height={63} viewBox={MARK_VIEWBOX} fill="#ff4e32">
             <g fillRule="evenodd">
@@ -86,8 +94,12 @@ export default async function Image() {
           </svg>
         </div>
 
-        {/* The core statement — Hero's own headline, "the noise." carrying
-            the same accent treatment it does live. */}
+        {/* The core statement — Hero's own headline, "the noise." now
+            italic + accent, matching the live site's own treatment
+            (both mobile and desktop, as of the latest update there).
+            Ink text on chalk, not chalk-on-ink — inverted from before
+            since the background itself flipped. Font size trimmed
+            slightly (76 -> 70). */}
         <div
           style={{
             display: "flex",
@@ -105,13 +117,16 @@ export default async function Image() {
               justifyContent: "center",
               fontFamily: "Geist",
               fontWeight: 700,
-              fontSize: 76,
+              fontSize: 70,
               lineHeight: 1.08,
-              color: "#f4f4f2",
+              color: "#0b0c10",
               letterSpacing: "-0.02em",
             }}
           >
-            We break through&nbsp;<span style={{ color: "#ff4e32", display: "flex" }}>the noise.</span>
+            We break through&nbsp;
+            <span style={{ color: "#ff4e32", fontStyle: "italic", display: "flex" }}>
+              the noise.
+            </span>
           </div>
           <div
             style={{
@@ -119,7 +134,7 @@ export default async function Image() {
               fontFamily: "Geist",
               fontWeight: 400,
               fontSize: 30,
-              color: "rgba(244,244,242,0.55)",
+              color: "rgba(11,12,16,0.55)",
               letterSpacing: "0.02em",
             }}
           >
@@ -133,6 +148,7 @@ export default async function Image() {
       fonts: [
         { name: "Geist", data: geistRegular, style: "normal", weight: 400 },
         { name: "Geist", data: geistBold, style: "normal", weight: 700 },
+        { name: "Geist", data: geistBoldItalic, style: "italic", weight: 700 },
       ],
     },
   );
