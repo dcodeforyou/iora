@@ -5,6 +5,7 @@ import { gsap, ScrollTrigger } from "@/lib/scroll/gsapSetup";
 import { createGrowingLens, type GrowingLensInstance } from "./liquidGlassLens";
 import { getLenisInstance } from "@/lib/scroll/lenisInstance";
 import { playSoftBounce, playLiquidSpread } from "@/lib/sound/sfx";
+import { HERO_VIDEO_BREAKPOINT } from "@/lib/scroll/heroEntry";
 
 const MARBLE_RADIUS = 16; // h-8 w-8 = 32px marble, matches Proof/Impact
 const IDLE_BOUNCE_HEIGHT = 20;
@@ -55,6 +56,14 @@ export default function PitchSection() {
     const wrapper = wrapperRef.current;
     const scrollHint = scrollHintRef.current;
     if (!section || !cta || !ghost || !lensEl || !wrapper || !scrollHint) return;
+
+    // Resolved once — same convention as heroVideo.ts's getActiveVideoKey.
+    // Mobile skips the whole "land on the CTA button, bounce twice" beat
+    // entirely (see getRestPoint and descentTrigger's onLeave below) —
+    // the marble drops straight to screen-center and the liquid-glass
+    // spread starts the instant it arrives, no bounce, no separate roll
+    // tween (it's already where runReveal would roll it to).
+    const isMobile = window.innerWidth < HERO_VIDEO_BREAKPOINT;
 
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       return;
@@ -164,6 +173,12 @@ export default function PitchSection() {
     };
 
     const getRestPoint = () => {
+      // Mobile: screen-center, matching runReveal's own roll target
+      // exactly (x:0, y:0 relative to the marble's fixed, centered
+      // portal anchor) — landing here means there's nothing left to
+      // visually "roll" to, so runReveal's roll tween is naturally a
+      // no-op distance, not a separate step to skip around.
+      if (isMobile) return { x: 0, y: 0 };
       const rect = cta.getBoundingClientRect();
       return {
         x: rect.left + rect.width / 2 - window.innerWidth / 2,
@@ -555,7 +570,14 @@ export default function PitchSection() {
         // First contact — "the marble's own landing... already reads as
         // the first bounce" (see startIdleBounce's own comment above).
         playSoftBounce(1);
-        startIdleBounce(marble, target.y);
+        // Mobile: straight into the reveal, no bounce beat at all — it's
+        // already sitting at screen-center (see getRestPoint above),
+        // exactly where runReveal would otherwise roll it to.
+        if (isMobile) {
+          runReveal(marble);
+        } else {
+          startIdleBounce(marble, target.y);
+        }
       },
       onEnterBack: () => stopIdleBounce(),
       onLeaveBack: () => {
@@ -615,10 +637,19 @@ export default function PitchSection() {
       // 150ms. `startIdleBounce` itself already no-ops if already
       // running, so this is purely to skip the position reset once
       // established, not a correctness guard for the bounce itself.
-      if (marble?.dataset.exited === "true" && window.scrollY > descentTrigger.end && !formed && !idleBounce) {
+      if (
+        marble?.dataset.exited === "true" &&
+        window.scrollY > descentTrigger.end &&
+        !formed &&
+        (isMobile || !idleBounce)
+      ) {
         const target = getRestPoint();
         gsap.set(marble, { x: target.x, y: target.y, scaleX: 1, scaleY: 1, rotation: 0 });
-        startIdleBounce(marble, target.y);
+        if (isMobile) {
+          runReveal(marble);
+        } else {
+          startIdleBounce(marble, target.y);
+        }
         // Forces the NEXT real scroll-up crossing back into this
         // trigger's range to capture fresh from this correct resting
         // position, instead of from `captured` staying null and then

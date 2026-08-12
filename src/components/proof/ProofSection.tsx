@@ -203,6 +203,14 @@ export default function ProofSection() {
       return;
     }
 
+    // Resolved once — same convention as heroVideo.ts's getActiveVideoKey.
+    // Used below to lower the main trigger's scrub lag on mobile (see
+    // `trigger` further down) — this scroll-hijack carousel pattern is
+    // intentional and correct as-is on desktop, but a 0.6s catch-up lag
+    // reads as "stuck"/disconnected from a touch scroll specifically,
+    // where the expectation is closer to 1:1 tracking with your finger.
+    const isMobile = window.innerWidth < HERO_VIDEO_BREAKPOINT;
+
     gsap.set(heading, { opacity: 0, y: 30 });
     gsap.set(track, { xPercent: 0 });
 
@@ -639,7 +647,7 @@ export default function ProofSection() {
       trigger: section,
       start: "top top",
       end: "bottom bottom",
-      scrub: 0.6,
+      scrub: isMobile ? 0.15 : 0.6,
       onUpdate: updateProof,
       // Fires exactly once, the instant scroll crosses "bottom bottom" —
       // Proof's own pin genuinely releasing. That's the real hand-off
@@ -743,12 +751,19 @@ export default function ProofSection() {
             actually reveal: a soft, shifting field of accent-colored
             light, on-brand with the throughline glow from Impact/marble
             rather than an arbitrary decorative blob. */}
+        {/* Opacity bumped (8% -> 25%) — these sit BEHIND ProofGlassCanvas,
+            fully hidden under its opaque WebGL canvas on desktop either
+            way (safe to change with zero desktop-visible effect), but on
+            mobile that canvas is now the plain CSS GlassPoster (semi-
+            transparent) instead — these blobs are what the cards' new
+            backdrop-blur frosted glass actually has to refract, and the
+            original faint values left it with barely anything to catch. */}
         <div
-          className="pointer-events-none absolute left-1/2 top-[55vh] h-[50vh] w-[50vh] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/8 blur-[100px]"
+          className="pointer-events-none absolute left-1/2 top-[55vh] h-[50vh] w-[50vh] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/25 blur-[100px]"
           aria-hidden="true"
         />
         <div
-          className="pointer-events-none absolute left-[30%] top-[70vh] h-[35vh] w-[35vh] -translate-x-1/2 -translate-y-1/2 rounded-full bg-chalk/5 blur-[80px]"
+          className="pointer-events-none absolute left-[30%] top-[70vh] h-[35vh] w-[35vh] -translate-x-1/2 -translate-y-1/2 rounded-full bg-chalk/15 blur-[80px]"
           aria-hidden="true"
         />
         {/* The actual glass — real-time WebGL refraction (see
@@ -784,7 +799,20 @@ export default function ProofSection() {
               <Link
                 href="/work"
                 data-cursor="lens"
-                className="liquid-glass-card group relative block h-[95vh] w-full max-w-md overflow-hidden"
+                // Mobile-only real iOS-style frosted glass — backdrop-blur
+                // of whatever's actually behind the card (the section's
+                // own ambient accent/chalk glow blobs, still there per
+                // AGENTS.md now that the WebGL canvas is gone on mobile —
+                // see ProofGlassCanvas), a faint chalk tint so the frost
+                // itself has some material presence, and an inset
+                // highlight along the top edge (the actual detail that
+                // sells "glass" over "blur" — a real light catching a
+                // curved edge). The video/scrim/text below are all
+                // children rendered ON TOP of this element's own backdrop
+                // plane, so they stay crisp — only what's behind the card
+                // gets blurred. Desktop reverts all of it (still the real
+                // WebGL refraction underneath, untouched).
+                className="liquid-glass-card group relative block h-[95vh] w-full max-w-md overflow-hidden backdrop-blur-2xl [background:linear-gradient(to_bottom,color-mix(in_srgb,var(--color-chalk)_10%,transparent),color-mix(in_srgb,var(--color-chalk)_3%,transparent))] shadow-[inset_0_1px_1px_rgba(244,244,242,0.3),inset_0_0_50px_rgba(244,244,242,0.05)] sm:bg-none sm:shadow-none sm:backdrop-blur-none"
                 onMouseEnter={() => handleGlimpseEnter(i)}
                 onMouseLeave={() => handleGlimpseLeave(i)}
               >

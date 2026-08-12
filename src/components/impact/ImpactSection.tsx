@@ -551,12 +551,21 @@ export default function ImpactSection() {
             the gradient's whole falloff proportionally, which already
             reads as "concentrating into a smaller, denser point" with no
             separate blur-radius animation needed. */}
+        {/* Stops softened (0%->65% opacity instead of 0%->100%, extra
+            mid-stops) — the first version had a near-opaque core for
+            roughly the first 30% of its radius, which read as a hard,
+            distinct "ball" with a halo around it rather than the soft,
+            edgeless cloud the original blur(100px) filter produced (a
+            true gaussian blur has no core at all — everything blends).
+            Reported directly as "color and glow seems very very off."
+            More stops = a gentler, more gradual taper across the whole
+            radius instead of two visually distinct zones. */}
         <div
           ref={glowRef}
           className="pointer-events-none absolute h-[60vmin] w-[60vmin] scale-125 rounded-full"
           style={{
             background:
-              "radial-gradient(circle, var(--color-accent) 0%, color-mix(in srgb, var(--color-accent) 55%, transparent) 30%, color-mix(in srgb, var(--color-accent) 15%, transparent) 55%, transparent 75%)",
+              "radial-gradient(circle, color-mix(in srgb, var(--color-accent) 65%, transparent) 0%, color-mix(in srgb, var(--color-accent) 48%, transparent) 18%, color-mix(in srgb, var(--color-accent) 30%, transparent) 38%, color-mix(in srgb, var(--color-accent) 12%, transparent) 58%, transparent 78%)",
           }}
         />
         <div

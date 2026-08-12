@@ -568,23 +568,27 @@ export default function CrtPowerOn() {
             voice, same "STOP" period-convention and small/big size
             split as LINE_WORDS — no brackets, that's the small kicker-
             label register ("[ signal lost ]"), a different voice from
-            the message itself. Amber border + text at REST now, not just
-            on hover — this is the only interactive element on the whole
-            boot screen, and a dim chalk/40 outline blended into the
-            static enough that it didn't read as clickable at all; full
-            accent at rest makes it the one obvious thing to click. Hover
-            inverts to a filled accent pill (bg-accent, ink text) — the
-            same "lift + color inversion" CTA hover language this site
-            already uses elsewhere (see WhatsAppButton), now free to be
-            the hover state since accent-at-rest took its old job. Static
-            `opacity-0` class is the SSR-safe default (matches
-            signalLostRef's own pattern); GSAP owns both opacity and
-            pointer-events from mount once the effect runs. */}
+            the message itself. Amber border + text at REST on desktop
+            (sm:), not just on hover — this is the only interactive
+            element on the whole boot screen, and a dim chalk/40 outline
+            blended into the static enough that it didn't read as
+            clickable at all; full accent at rest makes it the one
+            obvious thing to click. Hover inverts to a filled accent pill
+            (bg-accent, ink text) — the same "lift + color inversion" CTA
+            hover language this site already uses elsewhere (see
+            WhatsAppButton). Mobile has no hover at all, so it gets that
+            SAME filled look as its default/only state (bg-accent, ink
+            text) instead of the outline — showing an outline-only rest
+            state that never visually changes on tap read as less
+            obviously tappable than committing straight to the "pressed/
+            active" look. Static `opacity-0` class is the SSR-safe
+            default (matches signalLostRef's own pattern); GSAP owns both
+            opacity and pointer-events from mount once the effect runs. */}
         <button
           ref={buttonRef}
           type="button"
           onClick={handleEnter}
-          className="mt-8 flex items-baseline gap-x-3 border border-accent px-8 py-4 font-mono-kicker uppercase tracking-[0.05em] text-accent opacity-0 transition-colors duration-300 hover:bg-accent hover:text-ink sm:tracking-[0.1em]"
+          className="mt-8 flex items-baseline gap-x-3 border border-accent bg-accent px-8 py-4 font-mono-kicker uppercase tracking-[0.05em] text-ink opacity-0 transition-colors duration-300 sm:bg-transparent sm:text-accent sm:tracking-[0.1em] sm:hover:bg-accent sm:hover:text-ink"
         >
           <span className="text-2xl sm:text-3xl md:text-4xl">Enter Iora</span>
           <span className="text-base sm:text-lg md:text-xl">Stop</span>

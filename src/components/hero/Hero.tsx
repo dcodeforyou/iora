@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { gsap, ScrollTrigger } from "@/lib/scroll/gsapSetup";
 import HeroScene from "@/components/scene/HeroScene";
 import { getLenisInstance, onLenisUnlock } from "@/lib/scroll/lenisInstance";
-import { HERO_PIN_VH_MULTIPLIER, HERO_SCREEN_BREAK_END } from "@/lib/scroll/heroEntry";
+import { HERO_PIN_VH_MULTIPLIER, HERO_SCREEN_BREAK_END, HERO_VIDEO_BREAKPOINT } from "@/lib/scroll/heroEntry";
 import { HERO_MUSIC_ARTIST, HERO_MUSIC_TITLE, onHeroMusicStart } from "@/lib/scroll/heroMusic";
 
 export default function Hero() {
@@ -81,6 +81,9 @@ export default function Hero() {
         .to(headline, { opacity: 0, filter: "blur(6px)", duration: 0.35, ease: "power1.in" });
     };
 
+    // Resolved once — same convention as heroVideo.ts's getActiveVideoKey.
+    const isMobile = window.innerWidth < HERO_VIDEO_BREAKPOINT;
+
     const reveal = (p: number) => {
       // Once the flicker-out sequence exists, scroll no longer drives this
       // element at all — otherwise the very next scroll tick would
@@ -98,8 +101,22 @@ export default function Hero() {
       // with it.
       const t = Math.min(1, Math.max(0, (p - 0.32) / 0.22));
       headline.style.opacity = String(t);
-      headline.style.filter = `blur(${(1 - t) * 10}px)`;
-      headline.style.transform = `translateY(${(1 - t) * 16}px)`;
+      if (isMobile) {
+        // Bottom-to-top reveal, mobile only — a clip-path inset from the
+        // TOP shrinks as t grows, so the visible sliver starts at the
+        // element's own bottom edge and grows upward, reading as the
+        // line rising into view with scroll rather than just fading in
+        // place. `inset(topInset% 0 0 0)`: at t=0, 100% is clipped from
+        // the top (nothing visible); at t=1, 0% is clipped (fully
+        // visible). Desktop keeps its original translateY+blur treatment
+        // untouched below.
+        headline.style.clipPath = `inset(${(1 - t) * 100}% 0 0 0)`;
+        headline.style.filter = `blur(${(1 - t) * 4}px)`;
+        headline.style.transform = "none";
+      } else {
+        headline.style.filter = `blur(${(1 - t) * 10}px)`;
+        headline.style.transform = `translateY(${(1 - t) * 16}px)`;
+      }
       if (t >= 1) startFlickerOut();
     };
 
@@ -113,6 +130,7 @@ export default function Hero() {
       headline.style.opacity = "1";
       headline.style.filter = "none";
       headline.style.transform = "none";
+      headline.style.clipPath = "none";
       return;
     }
 
@@ -180,7 +198,14 @@ export default function Hero() {
         style={{ opacity: 0, filter: "blur(10px)" }}
       >
         <h1 className="max-w-4xl font-display text-4xl font-bold leading-[1.05] text-chalk [text-shadow:0_1px_0_rgba(11,12,16,0.7),0_4px_14px_rgba(11,12,16,0.45),0_16px_40px_rgba(11,12,16,0.4)] sm:text-6xl md:text-7xl">
-          We break through the noise.
+          {/* Mobile-only: forced onto its own line, italic + accent —
+              desktop keeps the original single-color, naturally-wrapping
+              treatment (sm:not-italic sm:text-chalk reverts both, and the
+              <br> is display:none at sm+ so desktop's own wrap behavior
+              is untouched). */}
+          We break through{" "}
+          <br className="sm:hidden" />
+          <span className="italic text-accent sm:not-italic sm:text-chalk">the noise.</span>
         </h1>
       </div>
 
