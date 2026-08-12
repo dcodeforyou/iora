@@ -600,15 +600,24 @@ export default function ImpactSection() {
             radius instead of two visually distinct zones. */}
         <div
           ref={glowRef}
-          className="pointer-events-none absolute h-[60vmin] w-[60vmin] scale-125 rounded-full"
+          // Box doubled (60vmin -> 120vmin) — this is the actual fix, not
+          // another round of stop-tuning. A radial-gradient confined to a
+          // fixed box will ALWAYS show a perceivable boundary where it
+          // hits transparent, no matter how gradual the stops leading up
+          // to it are (confirmed directly: even a 9-stop gaussian-shaped
+          // taper ending at 1.6% opacity right at the box edge still read
+          // as a visible circle — the eye/display contrast picks up
+          // where "a little color" meets "definitely none," especially
+          // against near-black). A real blur() filter reads soft because
+          // it bleeds OUTSIDE its own box; a gradient can't do that, so
+          // instead the box itself is now 2x bigger with the same
+          // "core" stops compressed into the first half of its radius —
+          // the transparent endpoint sits twice as far out, genuinely
+          // past where the eye is looking, not just technically gradual.
+          className="pointer-events-none absolute h-[120vmin] w-[120vmin] scale-125 rounded-full"
           style={{
-            // Brightened — the previous stops (65% max) read as faint
-            // and dull (reported directly). Kept the same multi-stop
-            // gradual taper (still no near-100%-opaque stop right at
-            // the center, which was the ORIGINAL "hard ball" problem),
-            // just meaningfully more saturated at every stop.
             background:
-              "radial-gradient(circle, color-mix(in srgb, var(--color-accent) 92%, transparent) 0%, color-mix(in srgb, var(--color-accent) 78%, transparent) 18%, color-mix(in srgb, var(--color-accent) 52%, transparent) 38%, color-mix(in srgb, var(--color-accent) 22%, transparent) 58%, transparent 78%)",
+              "radial-gradient(circle, color-mix(in srgb, var(--color-accent) 95%, transparent) 0%, color-mix(in srgb, var(--color-accent) 91%, transparent) 5%, color-mix(in srgb, var(--color-accent) 81%, transparent) 10%, color-mix(in srgb, var(--color-accent) 66%, transparent) 15%, color-mix(in srgb, var(--color-accent) 49%, transparent) 20%, color-mix(in srgb, var(--color-accent) 34%, transparent) 25%, color-mix(in srgb, var(--color-accent) 22%, transparent) 30%, color-mix(in srgb, var(--color-accent) 13%, transparent) 35%, color-mix(in srgb, var(--color-accent) 7%, transparent) 40%, color-mix(in srgb, var(--color-accent) 3.5%, transparent) 45%, color-mix(in srgb, var(--color-accent) 1.6%, transparent) 50%, transparent 100%)",
           }}
         />
         <div
