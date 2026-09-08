@@ -667,7 +667,21 @@ export default function ProofSection() {
       trigger: section,
       start: "top top",
       end: "bottom bottom",
-      scrub: isMobile ? 0.15 : 0.6,
+      // Mobile: `true` (exact, zero-lag), not a small eased number — a
+      // numeric scrub value smooths toward the real scroll position via
+      // GSAP's OWN internal ticker-driven tween, an extra layer that can
+      // itself lag or genuinely stall under real device congestion,
+      // independent of whether the raw scroll-position updates are still
+      // arriving fine. That reads exactly as "card 1 shows, cards 2/3 and
+      // the marble never catch up" — not a loading problem (all three
+      // cards are already fully rendered in the DOM from mount, nothing
+      // here is conditionally mounted on scroll position), but a smoothing
+      // tween that fell behind and never resolved. `true` ties xPercent/
+      // marble position directly to the real scroll value every tick, no
+      // separate eased value to fall behind. Desktop's 0.6 is untouched —
+      // not reported there, and the eased feel was a deliberate choice for
+      // a mouse-wheel/trackpad scroll register.
+      scrub: isMobile ? true : 0.6,
       onUpdate: updateProof,
       // Fires exactly once, the instant scroll crosses "bottom bottom" —
       // Proof's own pin genuinely releasing. That's the real hand-off

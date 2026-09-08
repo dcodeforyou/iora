@@ -54,6 +54,18 @@ export default function ResolutionSection() {
   // session the instant anyone scrolled past it — the exact same
   // always-on-video oversight fixed in ProofSection's own glimpse clips
   // (see that file's own doc comment), just not yet applied here.
+  // Explicit .load() on mount for both videos below, same as
+  // heroVideo.ts's own initHeroVideo() — belt-and-suspenders on top of
+  // preload="auto": a `src` set directly in JSX SHOULD start the browser
+  // loading on its own per the preload hint, but real testing showed
+  // these two stuck at readyState 0 indefinitely with no explicit .load()
+  // call forcing the issue. Costs nothing if the browser was already
+  // loading; removes any ambiguity if it wasn't.
+  useEffect(() => {
+    mobileVideoRef.current?.load();
+    videoRef.current?.load();
+  }, []);
+
   useEffect(() => {
     const el = mobileVideoContainerRef.current;
     if (!el) return;
