@@ -313,26 +313,44 @@ function GlassPoster() {
  * it continuously for the whole ~500vh Proof section. Pure CSS paints
  * instantly, no mount/compile latency at all.
  *
- * Two blurred, drifting blobs rather than GlassPoster's single static
- * gradient — GlassPoster alone was tried here before and reported as
- * looking cheap/flat next to desktop's real multicolor refraction; slow
- * opposing-phase drift (proof-glass-drift, globals.css) gives the cards'
- * own backdrop-blur something that visibly moves to blur, without any
- * per-frame JS driving it — transform+opacity only, compositor-only,
- * genuinely free while scrolling. motion-reduce disables both loops
- * (matches ResolutionSection's own model-spin convention) — reducedMotion
- * users get the static GlassPoster instead anyway (see the parent's own
+ * FOUR blurred, drifting, different-hued blobs — not GlassPoster's single
+ * static gradient, and not just two accent/chalk blobs either (a first
+ * pass at this used only those two and read as flat/washed-out next to
+ * desktop's real multicolor refraction, reported directly as having lost
+ * the one thing this page had going for it). The real WebGL shader this
+ * replaces does a genuine multi-hue prism sweep (see
+ * backgroundSceneMaterial.ts's own thematicColor) — this is that same
+ * "scoped exception to the near-monochrome rule" (per that shader's own
+ * comment), just approximated with plain color-mix blobs instead of a
+ * per-pixel hue function. Each blob drifts on its own duration/delay/
+ * direction so they never move in lockstep — reads as one continuously
+ * shifting field of color, not four separate shapes taking turns.
+ * transform+opacity only, compositor-only, genuinely free while
+ * scrolling. motion-reduce disables all four loops (matches
+ * ResolutionSection's own model-spin convention) — reducedMotion users
+ * get the static GlassPoster instead anyway (see the parent's own
  * branch), this is just the same courtesy for anyone whose OS setting
  * this component can't otherwise see. */
 function MobileGlassBackdrop() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       <div
-        className="absolute left-1/4 top-1/3 h-[70vmin] w-[70vmin] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/25 blur-[90px] motion-reduce:animate-none animate-[proof-glass-drift_14s_ease-in-out_infinite]"
+        className="absolute left-1/4 top-1/3 h-[65vmin] w-[65vmin] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/30 blur-[85px] motion-reduce:animate-none animate-[proof-glass-drift_13s_ease-in-out_infinite]"
         aria-hidden="true"
       />
       <div
-        className="absolute left-3/4 top-2/3 h-[60vmin] w-[60vmin] -translate-x-1/2 -translate-y-1/2 rounded-full bg-chalk/15 blur-[80px] motion-reduce:animate-none animate-[proof-glass-drift_18s_ease-in-out_infinite_reverse]"
+        className="absolute left-[70%] top-[20%] h-[50vmin] w-[50vmin] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[80px] motion-reduce:animate-none animate-[proof-glass-drift_17s_ease-in-out_infinite]"
+        style={{ backgroundColor: "color-mix(in srgb, #4fd6ff 32%, transparent)" }}
+        aria-hidden="true"
+      />
+      <div
+        className="absolute left-[15%] top-[75%] h-[55vmin] w-[55vmin] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[85px] motion-reduce:animate-none animate-[proof-glass-drift_20s_ease-in-out_infinite_reverse]"
+        style={{ backgroundColor: "color-mix(in srgb, #ff5fd6 28%, transparent)" }}
+        aria-hidden="true"
+      />
+      <div
+        className="absolute left-[85%] top-[55%] h-[45vmin] w-[45vmin] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[75px] motion-reduce:animate-none animate-[proof-glass-drift_15s_ease-in-out_infinite]"
+        style={{ backgroundColor: "color-mix(in srgb, #ffd24f 30%, transparent)" }}
         aria-hidden="true"
       />
     </div>
