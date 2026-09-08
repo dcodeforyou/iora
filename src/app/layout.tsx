@@ -30,7 +30,7 @@ const inter = Inter({
 });
 
 const SITE_URL = "https://iorastudio.vercel.app";
-const SITE_TITLE = "ïora — AI Ads & Websites";
+const SITE_TITLE = "ïora — Creative Growth Ecosystems";
 const SITE_DESCRIPTION =
   "Custom growth ecosystems connecting brand, cinematic campaigns, websites and integrations to generate leads, improve conversion and build repeat business.";
 

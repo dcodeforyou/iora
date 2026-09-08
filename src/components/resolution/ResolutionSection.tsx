@@ -269,8 +269,8 @@ export default function ResolutionSection() {
         {/* The real ïora mark — trying variant A here instead of D
             (same shape Nav shows on hover), same treatment otherwise:
             static, no hover-swap/spin/home-link, colored to match the
-            "AI ads & websites" label directly below it (ink/50), part
-            of the same fade-in as the rest of this beat. viewBox
+            "Creative growth ecosystems" label directly below it (ink/50),
+            part of the same fade-in as the rest of this beat. viewBox
             cropped to true content bounds, same reasoning as LogoMark. */}
         <svg
           viewBox="6 52 1374 516"
@@ -288,7 +288,7 @@ export default function ResolutionSection() {
           <path d="M132 52 H208 Q214 52 214 58 V130 Q214 136 208 136 H132 Q126 136 126 130 V58 Q126 52 132 52 Z" />
         </svg>
         <span className="h-px w-16 bg-accent" />
-        <p className="font-mono-kicker text-xs uppercase tracking-[0.3em] text-ink/50">AI ads &amp; websites</p>
+        <p className="font-mono-kicker text-xs uppercase tracking-[0.3em] text-ink/50">Creative growth ecosystems</p>
       </div>
     </section>
   );

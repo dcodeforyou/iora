@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-export const alt = "ïora — AI Ads & Websites";
+export const alt = "ïora — Creative Growth Ecosystems";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -94,18 +94,18 @@ export default async function Image() {
           </svg>
         </div>
 
-        {/* The core statement — Hero's own headline, "the noise." now
-            italic + accent, matching the live site's own treatment
-            (both mobile and desktop, as of the latest update there).
-            Ink text on chalk, not chalk-on-ink — inverted from before
-            since the background itself flipped. Font size trimmed
-            slightly (76 -> 70). */}
+        {/* The core statement — mirrors Hero's own current two-line
+            treatment: a small muted lead-in line, then the real payoff
+            ("More Leads." italic + accent, same last-clause-gets-the-
+            accent convention as the live site). Ink text on chalk, not
+            chalk-on-ink — inverted from before since the background
+            itself flipped. */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            gap: 28,
+            gap: 20,
             padding: "0 100px",
             textAlign: "center",
           }}
@@ -113,32 +113,32 @@ export default async function Image() {
           <div
             style={{
               display: "flex",
+              fontFamily: "Geist",
+              fontWeight: 400,
+              fontSize: 26,
+              color: "rgba(11,12,16,0.55)",
+              letterSpacing: "0.02em",
+            }}
+          >
+            We break through the noise.
+          </div>
+          <div
+            style={{
+              display: "flex",
               flexWrap: "wrap",
               justifyContent: "center",
               fontFamily: "Geist",
               fontWeight: 700,
-              fontSize: 70,
+              fontSize: 64,
               lineHeight: 1.08,
               color: "#0b0c10",
               letterSpacing: "-0.02em",
             }}
           >
-            We break through&nbsp;
+            Stronger brand.&nbsp;
             <span style={{ color: "#ff4e32", fontStyle: "italic", display: "flex" }}>
-              the noise.
+              More Leads.
             </span>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              fontFamily: "Geist",
-              fontWeight: 400,
-              fontSize: 30,
-              color: "rgba(11,12,16,0.55)",
-              letterSpacing: "0.02em",
-            }}
-          >
-            AI Ads &amp; Websites
           </div>
         </div>
       </div>
