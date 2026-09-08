@@ -204,14 +204,23 @@ export default function ResolutionSection() {
             actually showing it, found while investigating reports of the
             whole mobile site loading very slowly. Playback is entirely
             JS-driven now (see the IntersectionObserver effect above),
-            gated on this actually being in view. preload="metadata" keeps
-            the CSS-hidden desktop viewport's copy of this element (still
-            in the DOM, just `sm:hidden`) from fetching more than a few KB
-            of header data it'll never need. */}
+            gated on this actually being in view.
+            preload="auto", not "metadata" — "metadata" combined with this
+            file's own JS-driven .play() call (fired the instant this
+            scrolls into view) left the element stuck at readyState 0
+            indefinitely on real testing, never progressing past "loading"
+            — a real, reproducible conflict between the metadata-only hint
+            and an early explicit play() call, not just a slow network.
+            "auto" removes that ambiguity. Both this and the desktop clip
+            below are small (1.6-2.5MB) and sit well down the page (past
+            Hero/Attention/Impact/Proof/Pitch), so there's real scroll time
+            for either to buffer before this section is ever reached —
+            nowhere near the eager-hero-video cost this exact preload
+            question was originally about. */}
         <video
           ref={mobileVideoRef}
           src="/iora-footer.mp4"
-          preload="metadata"
+          preload="auto"
           loop
           muted
           playsInline
@@ -246,11 +255,14 @@ export default function ResolutionSection() {
         {/* No `autoPlay` — same fix and reasoning as the mobile video
             above. Playback now driven by the IntersectionObserver effect
             added above (previously this element had no observer at all,
-            relying entirely on the native attribute). */}
+            relying entirely on the native attribute). preload="auto" for
+            the same reason as the mobile video's own comment — "metadata"
+            left this element stuck at readyState 0 permanently once
+            play() was called on it. */}
         <video
           ref={videoRef}
           src="/model-loop.mp4"
-          preload="metadata"
+          preload="auto"
           loop
           muted
           playsInline

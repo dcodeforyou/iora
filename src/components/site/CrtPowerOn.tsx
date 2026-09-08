@@ -257,7 +257,7 @@ export default function CrtPowerOn() {
     let rafId2 = 0;
     let tl: gsap.core.Timeline | null = null;
     let revealTl: gsap.core.Timeline | null = null;
-    let pollCall: gsap.core.Tween | null = null;
+    let pollIntervalId: number | null = null;
     rafId1 = requestAnimationFrame(() => {
       rafId2 = requestAnimationFrame(() => {
         tl = gsap.timeline({ onComplete: startLoadingBar });
@@ -330,26 +330,32 @@ export default function CrtPowerOn() {
       }
       gsap.to([label, track], { opacity: 1, duration: 0.3, ease: "power1.out" });
 
-      // Same recursive gsap.delayedCall retry shape this codebase already
-      // uses elsewhere (see ProofSection/ImpactSection's own trySelfHeal) —
-      // polls readiness roughly 10x/sec rather than subscribing, matching
-      // the plain-mutable-object convention these flags already follow.
-      // MAX_WAIT is a safety net, not a target: a genuinely broken/offline
-      // fetch should never trap a visitor on this screen forever — past
-      // that point entry proceeds anyway, same as before this loading bar
-      // existed at all.
-      const MAX_WAIT_SECONDS = 12;
-      let waited = 0;
+      // REAL wall-clock deadline (performance.now(), not a tick-count) —
+      // an earlier version tracked elapsed time as `waited += 0.1` per
+      // gsap.delayedCall, which measures GSAP-ticker time, not real time.
+      // GSAP's ticker runs on requestAnimationFrame, which itself slows
+      // down under main-thread/GPU congestion — reported directly as this
+      // loading bar taking 1-1.5 REAL minutes despite a 12-"second" cap,
+      // on exactly the kind of low-power/congested device this timeout
+      // exists to protect. A real timestamp comparison can't drift like
+      // that regardless of how slowly frames are actually arriving.
+      // setInterval (not gsap.delayedCall) for the same reason — it's not
+      // tied to rAF at all, so the poll itself keeps ticking even while
+      // paint/GPU work is backed up, which is exactly the congested state
+      // this needs to keep working through.
+      const MAX_WAIT_MS = 12000;
+      const deadline = performance.now() + MAX_WAIT_MS;
       const poll = () => {
         const p = Math.min(1, combinedProgress());
         fill.style.width = `${p * 100}%`;
-        waited += 0.1;
-        if (p >= 1 || waited >= MAX_WAIT_SECONDS) {
+        if (p >= 1 || performance.now() >= deadline) {
+          if (pollIntervalId !== null) clearInterval(pollIntervalId);
+          pollIntervalId = null;
           revealButton();
-          return;
         }
-        pollCall = gsap.delayedCall(0.1, poll);
       };
+      poll();
+      pollIntervalId = window.setInterval(poll, 100);
       poll();
     }
 
@@ -392,7 +398,7 @@ export default function CrtPowerOn() {
       cancelAnimationFrame(rafId1);
       cancelAnimationFrame(rafId2);
       tl?.kill();
-      pollCall?.kill();
+      if (pollIntervalId !== null) clearInterval(pollIntervalId);
       revealTl?.kill();
       // Deliberately NOT unlocking scroll here (an earlier version did,
       // unconditionally) — this cleanup's only real caller in practice is
