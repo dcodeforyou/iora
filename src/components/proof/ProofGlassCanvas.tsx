@@ -105,45 +105,6 @@ function useBackgroundScene() {
   return { scene, material, meshRef };
 }
 
-/** Mobile-only: JUST the background bubble shader (see
- * backgroundSceneMaterial.ts), rendered directly as the main scene — no
- * FBO round-trip (there's no card refraction here to feed a texture
- * to, so skipping straight to a normal render pass instead of
- * background-to-FBO-then-blit-a-second-mesh cuts a whole redundant
- * render entirely), no per-card chromatic-aberration sampling. Real
- * iOS-style frosted glass needs something worth blurring behind it —
- * backdrop-filter operates on the actual composited pixels, so this
- * canvas sitting behind the cards is exactly what their own
- * backdrop-blur (see ProofSection's .liquid-glass-card classes) picks
- * up. Replaces the plain CSS GlassPoster gradient, reported directly
- * as looking cheap next to the real multicolor form desktop gets. */
-function ProofBackgroundScene({ state }: { state: ProofGlassState }) {
-  const { size, clock } = useThree();
-  const material = useMemo<BackgroundSceneMaterial>(() => createBackgroundSceneMaterial(), []);
-  const meshRef = useRef<THREE.Mesh>(null);
-
-  useFrame(() => {
-    if (meshRef.current) meshRef.current.scale.set(size.width, size.height, 1);
-    const u = material.uniforms;
-    u.uResolution.value.set(size.width, size.height);
-    u.uGlowCenter.value.set(state.glowCenter.x, state.glowCenter.y);
-    u.uGlowIntensity.value = state.glowIntensity;
-    u.uGlow2Center.value.set(state.glow2Center.x, state.glow2Center.y);
-    u.uGlow2Intensity.value = state.glow2Intensity;
-    u.uTime.value = clock.elapsedTime;
-  });
-
-  useEffect(() => {
-    return () => material.dispose();
-  }, [material]);
-
-  return (
-    <mesh ref={meshRef} material={material}>
-      <planeGeometry args={[1, 1]} />
-    </mesh>
-  );
-}
-
 function GlassCards({
   state,
   backgroundTexture,
@@ -343,6 +304,41 @@ function GlassPoster() {
   );
 }
 
+/** Mobile's glass backdrop — replaces the WebGL "bubble shader" canvas
+ * that used to sit here (see the removed ProofBackgroundScene usage
+ * below). That canvas still needed to mount, create a WebGL context and
+ * compile its shader before painting anything, and real-device reports
+ * described exactly that window as the cards visibly "taking time to
+ * load"/looking broken — on top of the ongoing per-frame cost of running
+ * it continuously for the whole ~500vh Proof section. Pure CSS paints
+ * instantly, no mount/compile latency at all.
+ *
+ * Two blurred, drifting blobs rather than GlassPoster's single static
+ * gradient — GlassPoster alone was tried here before and reported as
+ * looking cheap/flat next to desktop's real multicolor refraction; slow
+ * opposing-phase drift (proof-glass-drift, globals.css) gives the cards'
+ * own backdrop-blur something that visibly moves to blur, without any
+ * per-frame JS driving it — transform+opacity only, compositor-only,
+ * genuinely free while scrolling. motion-reduce disables both loops
+ * (matches ResolutionSection's own model-spin convention) — reducedMotion
+ * users get the static GlassPoster instead anyway (see the parent's own
+ * branch), this is just the same courtesy for anyone whose OS setting
+ * this component can't otherwise see. */
+function MobileGlassBackdrop() {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div
+        className="absolute left-1/4 top-1/3 h-[70vmin] w-[70vmin] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/25 blur-[90px] motion-reduce:animate-none animate-[proof-glass-drift_14s_ease-in-out_infinite]"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute left-3/4 top-2/3 h-[60vmin] w-[60vmin] -translate-x-1/2 -translate-y-1/2 rounded-full bg-chalk/15 blur-[80px] motion-reduce:animate-none animate-[proof-glass-drift_18s_ease-in-out_infinite_reverse]"
+        aria-hidden="true"
+      />
+    </div>
+  );
+}
+
 /** Full-bounds WebGL layer behind Proof's card track — real-time glass
  * refraction (see liquidGlassMaterial.ts) synced pixel-for-pixel to the
  * DOM `.liquid-glass-card` divs via `state`, which ProofSection's own
@@ -373,24 +369,15 @@ export default function ProofGlassCanvas({ state }: { state: ProofGlassState }) 
         // Real-time full refraction (background-to-FBO + per-card
         // chromatic-aberration sampling) was reported as still-severely
         // laggy on real mobile GPUs across multiple rounds of DPR/
-        // resolution/antialias tuning. But the plain CSS GlassPoster
-        // gradient that replaced it was ALSO reported directly as
-        // looking cheap — so mobile now gets a middle ground: just the
-        // background bubble shader (ProofBackgroundScene above), no FBO
-        // round-trip and no card refraction at all, a fraction of the
-        // full setup's cost. The cards' own backdrop-blur frosted glass
-        // (see ProofSection) picks this up as real content to blur,
-        // which is the whole point of a frosted-glass look.
-        <Canvas
-          orthographic
-          dpr={1}
-          gl={{ antialias: false, alpha: true }}
-          frameloop={isVisible ? "always" : "never"}
-          fallback={<GlassPoster />}
-        >
-          <ResizeSyncedCamera />
-          <ProofBackgroundScene state={state} />
-        </Canvas>
+        // resolution/antialias tuning. A lighter WebGL-only tier (just the
+        // background bubble shader, no FBO/refraction) replaced it next,
+        // but STILL read as slow-to-appear/buggy on real phones — a canvas
+        // mount + shader compile is real, visible latency even at this
+        // trimmed-down cost, on top of still running every frame for the
+        // whole ~500vh section. Mobile now gets no WebGL at all — see
+        // MobileGlassBackdrop above, a pure-CSS pair of drifting blurred
+        // blobs instead, paints instantly and costs nothing ongoing.
+        <MobileGlassBackdrop />
       ) : (
         <Canvas
           orthographic

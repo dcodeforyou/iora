@@ -179,3 +179,23 @@ html.custom-cursor-active * {
     transform: scaleY(1);
   }
 }
+
+/* Proof's mobile-only glass backdrop (ProofGlassCanvas.tsx) — replaces
+   the WebGL "bubble shader" canvas entirely on mobile (real device
+   reports: the Canvas's own mount/shader-compile window read as the
+   cards visibly "taking time to load," on top of the sustained
+   per-frame cost of keeping it running for the whole ~500vh section).
+   Pure CSS, paints instantly, transform+opacity only (compositor-only,
+   no layout/paint cost) — the same "slow drift" character a soft ambient
+   light would have, not a bouncy/attention-seeking loop. */
+@keyframes proof-glass-drift {
+  0%,
+  100% {
+    transform: translate(-6%, -4%) scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate(6%, 4%) scale(1.12);
+    opacity: 0.85;
+  }
+}
