@@ -108,23 +108,33 @@ let loopHandlerInstalled = false;
  * hidden <video> element for whichever cut this viewport uses, and calls
  * `.load()` immediately. Meant to be invoked as the very first thing
  * CrtPowerOn's mount effect does, well before its own boot timeline's two
- * deferred rAFs even run — bytes need to start flowing over the network
- * before "[ signal lost ]" has even faded in, per this site's own explicit
- * requirement that the video (and the WebGL shard shaders — see
- * HeroScene.tsx's gl.compileAsync warm-up) be ready by the time that screen
- * appears. Also called from HeroScene's SceneContent so the VideoTexture
- * has a real element to bind to regardless of component mount order.
+ * deferred rAFs even run.
+ *
+ * preload="metadata", NOT "auto" — an earlier version set "auto" specifically
+ * so the full file would already be buffering before "[ signal lost ]" even
+ * faded in, on the theory that a background fetch during that dwell time was
+ * "free." Real-device testing said otherwise: reported directly as the
+ * browser's own page-load indicator still spinning well after scrolling deep
+ * into the site, and general sluggishness (including in totally unrelated
+ * sections, e.g. Attention) that tracked with it — a multi-MB fetch held open
+ * for however long a real mobile network takes isn't free, it competes for
+ * bandwidth and main-thread event handling the whole time it runs, for
+ * however many seconds or tens of seconds that turns out to be on a slow
+ * connection. `.play()` (see playHeroVideo below) still triggers the browser
+ * to fetch and buffer the real media data the moment the entry click actually
+ * happens — this only changes WHEN the heavy fetch starts (on genuine user
+ * interaction, not unconditionally on page load), not whether it eventually
+ * happens. Also called from HeroScene's SceneContent so the VideoTexture has
+ * a real element to bind to regardless of component mount order.
  *
  * Deliberately loads ONLY the active platform's file, not both — loading
  * the unused cut too would compete for the exact bandwidth this function
  * exists to protect, for a file that will never play this session.
  *
- * Not gated on network speed: `.play()` (see playHeroVideo below) is called
- * unconditionally on the entry click regardless of `.ready` — browsers
- * handle playback of a partially-buffered video natively (play what's
- * downloaded, keep buffering), and this site has no loading-spinner state
- * to show instead. The real guarantee here is "loading started as early as
- * technically possible," not "guaranteed fully buffered by click time."
+ * Not gated on network speed: `.play()` is called unconditionally on the
+ * entry click regardless of `.ready` — browsers handle playback of a
+ * partially-buffered video natively (play what's downloaded, keep
+ * buffering), and this site has no loading-spinner state to show instead.
  */
 export function initHeroVideo(): HTMLVideoElement {
   if (heroVideoState.el) return heroVideoState.el;
@@ -154,7 +164,7 @@ export function initHeroVideo(): HTMLVideoElement {
   video.defaultMuted = video.muted;
   subscribeSound(() => applyMuted(video));
   video.playsInline = true;
-  video.preload = "auto";
+  video.preload = "metadata";
   // Off-screen but genuinely attached to the document — some browsers
   // (older iOS Safari in particular) throttle or refuse to decode/autoplay
   // a video element that was never attached to the DOM at all.
