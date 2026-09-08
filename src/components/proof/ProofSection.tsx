@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { gsap, ScrollTrigger } from "@/lib/scroll/gsapSetup";
 import { PROOF_CARD_TOP_VH } from "@/lib/scroll/marbleGeometry";
@@ -9,6 +9,24 @@ import { playGlassBounce } from "@/lib/sound/sfx";
 import { HERO_VIDEO_BREAKPOINT } from "@/lib/scroll/heroEntry";
 
 const CARD_RADIUS_PX = 44; // matches the WebGL card mesh's uRadius default
+
+const subscribeNoop = () => () => {};
+
+/** Same SSR-safe pattern as ProofGlassCanvas.tsx's own useIsMobile — stays
+ * false through the first client render (matching SSR) so hydration never
+ * mismatches, then flips once React confirms the real client value. Used
+ * here to skip rendering the glimpse video/image on mobile entirely (see
+ * the card render below), not just hide it via CSS — a hidden video
+ * element still fetches per its own preload/poster attributes, which
+ * defeats the point. */
+function useIsMobile() {
+  const isClient = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  );
+  return isClient && window.innerWidth < HERO_VIDEO_BREAKPOINT;
+}
 
 // Trimmed to three — the carousel is one-card-at-a-time by design, not a
 // scrollable list, so three is the actual content, not a placeholder cut.
@@ -171,32 +189,16 @@ export default function ProofSection() {
   // mobile-only effect below), matching the CSS below that shows it at
   // rest instead of gating it behind a hover that can't happen there.
   const glimpseVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
-  // Mobile playback state — read/written by both the mount-time
-  // IntersectionObserver effect below AND the scroll-driven carousel
-  // effect further down (updateProof), which is why these live at
-  // component scope rather than inside either effect individually.
-  const sectionVisibleRef = useRef(false);
-  const activeCardIndexRef = useRef(0);
-  // Only ONE glimpse video plays at a time on mobile — the carousel only
-  // ever shows one card centered (occasionally two, mid-transition), but
-  // the previous version played all three continuously for the entire
-  // time Proof was anywhere on screen, regardless of which card was
-  // actually visible. Three simultaneously-decoding video streams for the
-  // whole ~500vh scroll range this section spans is real, sustained
-  // mobile CPU/battery cost for two videos nobody's looking at — reported
-  // directly as "cards extremely slow" / laggy on phone. Desktop is
-  // untouched (still hover-gated via handleGlimpseEnter/Leave below).
-  const applyGlimpsePlayback = () => {
-    if (window.innerWidth >= HERO_VIDEO_BREAKPOINT) return;
-    glimpseVideoRefs.current.forEach((video, i) => {
-      if (!video) return;
-      if (sectionVisibleRef.current && i === activeCardIndexRef.current) {
-        void video.play().catch(() => {});
-      } else {
-        video.pause();
-      }
-    });
-  };
+  const isMobile = useIsMobile();
+  // Desktop-only now — the glimpse video/poster is skipped entirely on
+  // mobile (see the card render below). It was previously mobile's own
+  // visual interest (playing continuously, then later gated to just the
+  // active card), but real-device reports kept coming back laggy/slow
+  // regardless of how much the playback itself was trimmed — removed
+  // outright rather than tuned further. The card's own mobile-only frosted
+  // background (see the `.liquid-glass-card` className below — a real
+  // backdrop-blur + gradient + inset highlight, already there independent
+  // of any video) carries the "glass" look on its own.
   const handleGlimpseEnter = (index: number) => {
     const video = glimpseVideoRefs.current[index];
     if (!video) return;
@@ -210,40 +212,6 @@ export default function ProofSection() {
   const handleGlimpseLeave = (index: number) => {
     glimpseVideoRefs.current[index]?.pause();
   };
-
-  // Mobile-only playback — explicit JS play(), same reasoning as
-  // ResolutionSection's own mobile video: the bare `autoplay` HTML
-  // attribute has been unreliable on this site's mobile testing, and
-  // adding it unconditionally would also autoplay these on desktop
-  // (undesired — desktop keeps its existing hover-gated behavior
-  // untouched).
-  //
-  // IntersectionObserver-gated (threshold 0, observing the section
-  // itself) for the on/off-screen half of the decision; applyGlimpsePlayback
-  // (defined above) owns the other half — WHICH of the three is allowed to
-  // play, driven by activeCardIndexRef (updated every scroll tick in
-  // updateProof below). An earlier version played all three simultaneously
-  // for the entire time any part of Proof was on screen — correct for
-  // "should decode at all," wrong for "how many at once": this carousel
-  // only ever shows ONE card at a time, so two of those three decodes were
-  // always wasted, reported directly as "cards extremely slow"/laggy on
-  // real phones. Pausing (not unmounting) on exit and resuming on
-  // re-entry keeps this consistent with every other autoplaying layer on
-  // this site (HeroScene's Canvas frameloop, ProofGlassCanvas's WebGL
-  // render loop) which all pause off-screen per AGENTS.md.
-  useEffect(() => {
-    const section = sectionRef.current;
-    if (!section || window.innerWidth >= HERO_VIDEO_BREAKPOINT) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        sectionVisibleRef.current = entry.isIntersecting;
-        applyGlimpsePlayback();
-      },
-      { threshold: 0 },
-    );
-    observer.observe(section);
-    return () => observer.disconnect();
-  }, []);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -530,19 +498,6 @@ export default function ProofSection() {
     // shape is at top-left first, then snaps into place" bug.
     const updateProof = (self: ScrollTrigger) => {
         const p = self.progress;
-
-        // Drives applyGlimpsePlayback's mobile video gating (see above) —
-        // which single card is centered right now, using the same
-        // DWELL/TRANSITION boundaries the track's own xPercent already
-        // switches on. Only calls play()/pause() on an actual index
-        // change, not every scroll tick (this function runs on every
-        // scrubbed frame).
-        const newActiveIndex = p < TRANSITION1_END ? 0 : p < TRANSITION2_END ? 1 : 2;
-        if (newActiveIndex !== activeCardIndexRef.current) {
-          activeCardIndexRef.current = newActiveIndex;
-          applyGlimpsePlayback();
-        }
-
         const viewportHeight = window.innerHeight;
         const restingY = getRestingY(viewportHeight);
         const hopHeight = HOP_HEIGHT;
@@ -900,24 +855,34 @@ export default function ProofSection() {
                     asks for elsewhere on this site. Muted permanently —
                     this is a silent background glimpse, not a video with
                     its own soundtrack, regardless of the site's own sound
-                    toggle (that only ever governs SFX and the Hero video). */}
-                <video
-                  ref={(el) => {
-                    glimpseVideoRefs.current[i] = el;
-                  }}
-                  src={service.glimpseVideo}
-                  poster={service.glimpseImage}
-                  muted
-                  loop
-                  playsInline
-                  preload="metadata"
-                  aria-hidden="true"
-                  // Visible at rest on mobile (opacity-60, no hover there
-                  // to gate it on — it plays continuously instead, see
-                  // the mobile-only effect above), hover-gated on desktop
-                  // exactly as before (sm:opacity-0 sm:group-hover:...).
-                  className="absolute inset-0 z-0 h-full w-full object-cover opacity-60 grayscale-[90%] transition-opacity duration-500 ease-out sm:opacity-0 sm:group-hover:opacity-60"
-                />
+                    toggle (that only ever governs SFX and the Hero video).
+
+                    Desktop only (!isMobile) — no video or poster image at
+                    all on mobile, not just hidden/paused. Real-device
+                    reports of "cards extremely slow"/laggy on phone
+                    persisted through several rounds of trimming (mobile-
+                    only tier, then gating to just the active card); the
+                    video itself was the remaining cost, so it's gone
+                    outright there rather than tuned further. Doesn't need
+                    a replacement — see the card's own liquid-glass-card
+                    className above, a real backdrop-blur + gradient +
+                    inset-highlight treatment that already carries the
+                    "glass" look independent of any video underneath it. */}
+                {!isMobile && (
+                  <video
+                    ref={(el) => {
+                      glimpseVideoRefs.current[i] = el;
+                    }}
+                    src={service.glimpseVideo}
+                    poster={service.glimpseImage}
+                    muted
+                    loop
+                    playsInline
+                    preload="metadata"
+                    aria-hidden="true"
+                    className="absolute inset-0 z-0 h-full w-full object-cover opacity-0 grayscale-[90%] transition-opacity duration-500 ease-out group-hover:opacity-60"
+                  />
+                )}
                 {/* A soft top-down scrim, ONLY over the text's own region
                     (not the full card) — the glimpse video sits right
                     behind the title/description at 60% opacity, and once
@@ -925,12 +890,14 @@ export default function ProofSection() {
                     read as noticeably harder to pick out than at rest.
                     This darkens just enough behind the copy to hold
                     contrast without flattening the glimpse into a solid
-                    block. Visible at rest on mobile (matching the video
-                    above), hover-gated on desktop as before. */}
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-x-0 top-0 z-[5] h-2/3 bg-gradient-to-b from-ink/70 via-ink/35 to-transparent opacity-100 transition-opacity duration-500 ease-out sm:opacity-0 sm:group-hover:opacity-100"
-                />
+                    block. Desktop only, same reason as the video above —
+                    nothing to darken without it on mobile. */}
+                {!isMobile && (
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 top-0 z-[5] h-2/3 bg-gradient-to-b from-ink/70 via-ink/35 to-transparent opacity-0 transition-opacity duration-500 ease-out group-hover:opacity-100"
+                  />
+                )}
                 <div className="relative z-10 flex h-full flex-col justify-start gap-3 p-8 pt-16 text-left sm:p-10 sm:pt-20">
                   {/* Label: number + system name, ALL CAPS, small, full
                       chalk white — was chalk-muted grey, read as not
