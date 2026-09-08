@@ -826,16 +826,18 @@ export default function AttentionSection() {
         <div className="relative z-10 flex flex-col items-center gap-4 px-6 text-center">
           <p className="font-mono-kicker text-xs uppercase tracking-[0.3em] text-chalk-muted">[ impact ]</p>
           <h2 className="max-w-3xl font-display text-4xl font-semibold leading-tight text-chalk sm:text-5xl md:text-6xl">
-            Then we hit{" "}
+            Connect attention{" "}
             {/* Invisible, not omitted — keeps the exact same layout/spacing
                 as the real ImpactSection (which reveals this word itself,
                 see ImpactSection.tsx) so the handoff stays seamless, while
                 not spoiling the payoff word through the hole before the
-                real section's own reveal gets to play it. */}
+                real section's own reveal gets to play it. Period now lives
+                inside the span (matching ImpactSection's own span exactly)
+                rather than as a separate plain-colored character after it —
+                the two had drifted out of sync before this pass. */}
             <span className="text-accent opacity-0 [text-shadow:0_0_24px_rgba(255,78,50,0.5)]">
-              the mark
+              to revenue.
             </span>
-            .
           </h2>
         </div>
       </div>

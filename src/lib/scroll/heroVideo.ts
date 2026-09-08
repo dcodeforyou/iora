@@ -25,7 +25,45 @@ const SOURCES = {
   mobile: "/videos/iora-mobile.mp4",
 } as const;
 
+// A third, much more aggressively compressed encode of the exact same
+// mobile cut (same 720x1280... no — same crop/duration, just downscaled +
+// ~1/3 the bitrate, ~700kbps average, peaks under 1Mbps) used ONLY when
+// the connection itself is the bottleneck, not the device. Reported
+// directly: even after the main mobile cut was brought down to a
+// legitimately small ~4MB/~2Mbps average, it still visibly loaded late
+// under a slow/throttled network — because ~2Mbps average already
+// exceeds what a throttled 3G-class link can sustain in real time, no
+// amount of client-side scheduling changes that. This file's bitrate sits
+// comfortably under even "Slow 3G" (~400-500kbps) profiles. Same
+// duration/content as SOURCES.mobile (re-encoded from the same master),
+// so HERO_LOOP_TIME.mobile and every other "mobile" assumption elsewhere
+// (aspect, orientation, shard seed) stays correct — this only ever swaps
+// which BYTES load for the existing "mobile" key, never introduces a
+// third HeroVideoKey, so nothing outside this file needs to know it
+// exists.
+const MOBILE_LITE_SOURCE = "/videos/iora-mobile-lite.mp4";
+
 export type HeroVideoKey = keyof typeof SOURCES;
+
+// Network Information API — Chromium/Android only (no Safari/iOS support,
+// still true as of this writing), so this is purely ADDITIVE: it can only
+// ever downgrade the file chosen for users on a browser that actually
+// reports connection quality, and is a silent no-op (falls through to the
+// existing default mobile cut) everywhere else, including every iPhone.
+// Treats an explicit Data Saver opt-in (`saveData`) as slow regardless of
+// `effectiveType`'s own estimate, since that's a direct user preference,
+// not a measurement.
+function isSlowConnection(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const conn = (
+    navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string };
+    }
+  ).connection;
+  if (!conn) return false;
+  if (conn.saveData) return true;
+  return conn.effectiveType === "slow-2g" || conn.effectiveType === "2g" || conn.effectiveType === "3g";
+}
 
 // iOS Safari (and iOS WebViews generally) silently ignore programmatic
 // writes to HTMLMediaElement.volume entirely — a long-documented Apple
@@ -136,7 +174,7 @@ export function initHeroVideo(): HTMLVideoElement {
   // Set after the listeners/attributes above, then load() — src assignment
   // is what actually kicks off the network request, so everything that
   // needs to observe "did it finish" has to be wired first.
-  video.src = SOURCES[key];
+  video.src = key === "mobile" && isSlowConnection() ? MOBILE_LITE_SOURCE : SOURCES[key];
   video.load();
 
   heroVideoState.el = video;

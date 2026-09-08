@@ -43,6 +43,22 @@ export interface GrowingLensOptions {
   /** Non-Chromium fallback — Safari/Firefox get this instead of the
    * real displacement (see file header). */
   fallbackFilter?: string;
+  /** Forces the same cheap fallback path non-Chromium browsers get, even
+   * on a Chromium engine that would otherwise qualify for the real
+   * displacement. Real Android-phone testing (this lens growing from a
+   * point to viewport-diagonal size, three feDisplacementMap passes +
+   * two feBlends, backdrop-filter'd live over real DOM content, every
+   * frame for ~1.1s) reported real, visible lag on Android specifically
+   * — `isChromiumBrowser` alone (`/Chrome\//` in the UA) can't tell a
+   * desktop-class GPU apart from a budget Android phone's, and Android
+   * Chrome matches that UA just as much as desktop Chrome does. iOS
+   * Safari never had this problem because it was already excluded by
+   * `isChromiumBrowser` itself (Safari has no Chrome/ token) — this
+   * option is what lets a CALLER add the equivalent exclusion for
+   * Android without this file needing to know what "mobile" means
+   * (that's a viewport-width judgment call already made elsewhere in
+   * this codebase, e.g. PitchSection's own `isMobile`). */
+  forceFallback?: boolean;
   /** Minimum px change in diameter before the (expensive) displacement
    * map is regenerated — the element's own CSS size still updates every
    * call for smooth visual growth; only the costlier SVG map redraw is
@@ -96,7 +112,7 @@ interface ResolvedConfig {
   b: number;
 }
 
-const DEFAULTS: Required<Omit<GrowingLensOptions, "fallbackFilter">> = {
+const DEFAULTS: Required<Omit<GrowingLensOptions, "fallbackFilter" | "forceFallback">> = {
   scale: -120,
   aberration: [0, 14, 28],
   blur: 11,
@@ -220,7 +236,7 @@ export function createGrowingLens(
   const opts = { ...DEFAULTS, ...options };
   const fallback = options.fallbackFilter ?? "blur(14px)";
 
-  if (!isChromiumBrowser) {
+  if (!isChromiumBrowser || options.forceFallback) {
     element.style.backdropFilter = fallback;
     element.style.setProperty("-webkit-backdrop-filter", fallback);
     return {

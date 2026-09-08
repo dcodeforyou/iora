@@ -18,20 +18,27 @@ const CARD_RADIUS_PX = 44; // matches the WebGL card mesh's uRadius default
 // own URL anymore.
 const SERVICES = [
   {
-    title: "AI Video Ads",
-    desc: "Scroll-stopping ads, built to turn viewers into customers.",
+    // Small ALL-CAPS kicker (paired with the card's own "0{i+1}" number at
+    // render time, e.g. "01 / TRAFFIC GENERATION SYSTEM") — the system's
+    // technical name. `title` below is the human BENEFIT headline, not a
+    // restatement of this label.
+    label: "Traffic Generation System",
+    title: "Get noticed by the people who matter.",
+    desc: "Cinematic ads and targeted campaigns bring potential customers to your offers. Our production approach makes ambitious ideas possible with fewer costly shoots.",
     glimpseImage: "/work/convergence/frame-10.webp",
     glimpseVideo: "/videos/product-ad.mp4",
   },
   {
-    title: "Brand Websites",
-    desc: "Sites built to turn visitors into your next lead.",
+    label: "Conversion & Qualification System",
+    title: "Turn interest into bookings and sales.",
+    desc: "Website, menu and booking funnels guide people towards taking action. AI-assisted replies understand their needs, answer questions and help qualify enquiries.",
     glimpseImage: "/work/coffee-roastry/roaster.jpg",
     glimpseVideo: "/videos/product-websites.mp4",
   },
   {
-    title: "Motion & Identity",
-    desc: "A brand system made to move — and stay in your customers' minds.",
+    label: "Reputation & Retention System",
+    title: "Build trust that brings customers back.",
+    desc: "Connected review requests, reminders and follow-ups strengthen your reputation. Relevant offers give customers a reason to return, with less manual work for your team.",
     glimpseImage: "/work/dental/esthetic.jpg",
     glimpseVideo: "/videos/product-motion.mp4",
   },
@@ -801,10 +808,10 @@ export default function ProofSection() {
           className="absolute inset-x-0 top-[6vh] z-10 flex flex-col items-center gap-4 px-6 text-center"
         >
           <p className="font-mono-kicker text-xs uppercase tracking-[0.3em] text-chalk-muted">
-            [ the deploy ]
+            [ the ecosystem ]
           </p>
           <h2 className="max-w-2xl font-display text-4xl font-semibold leading-tight text-chalk sm:text-5xl">
-            What we deploy.
+            Three connected steps. Built around your brand.
           </h2>
         </div>
 
@@ -889,11 +896,21 @@ export default function ProofSection() {
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-x-0 top-0 z-[5] h-2/3 bg-gradient-to-b from-ink/70 via-ink/35 to-transparent opacity-100 transition-opacity duration-500 ease-out sm:opacity-0 sm:group-hover:opacity-100"
                 />
-                <div className="relative z-10 flex h-full flex-col justify-start gap-3 p-8 pt-16 sm:p-10 sm:pt-20">
-                  <span className="font-mono-kicker text-[11px] uppercase tracking-[0.2em] text-chalk-muted">
-                    0{i + 1}
+                <div className="relative z-10 flex h-full flex-col justify-start gap-3 p-8 pt-16 text-left sm:p-10 sm:pt-20">
+                  {/* Label: number + system name, ALL CAPS, small, full
+                      chalk white — was chalk-muted grey, read as not
+                      clearly visible against the busy glimpse-video
+                      background, reported directly. Benefit line: stepped
+                      down from an initial 26-30px "headline" treatment to a
+                      smaller, greyish subtitle — the label above is meant
+                      to read as the primary identifier now, this supports
+                      it rather than competing with it. Description: back
+                      to the original text-sm — the 16-18px pass read as too
+                      big for this card's own text block. */}
+                  <span className="font-mono-kicker text-[13px] uppercase tracking-[0.1em] text-chalk">
+                    0{i + 1} / {service.label}
                   </span>
-                  <h3 className="font-display text-2xl font-medium text-chalk [text-shadow:0_1px_3px_rgba(11,12,16,0.6),0_4px_16px_rgba(11,12,16,0.5)] sm:text-3xl">
+                  <h3 className="font-display text-lg font-medium leading-tight text-chalk-muted [text-shadow:0_1px_3px_rgba(11,12,16,0.6),0_4px_16px_rgba(11,12,16,0.5)] sm:text-xl">
                     {service.title}
                   </h3>
                   <p className="text-sm leading-relaxed text-chalk [text-shadow:0_1px_3px_rgba(11,12,16,0.6),0_4px_16px_rgba(11,12,16,0.5)]">

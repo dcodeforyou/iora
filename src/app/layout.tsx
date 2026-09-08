@@ -32,7 +32,7 @@ const inter = Inter({
 const SITE_URL = "https://iorastudio.vercel.app";
 const SITE_TITLE = "ïora — AI Ads & Websites";
 const SITE_DESCRIPTION =
-  "iora is an AI ads and websites studio for brands that refuse to be scrolled past.";
+  "Custom growth ecosystems connecting brand, cinematic campaigns, websites and integrations to generate leads, improve conversion and build repeat business.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

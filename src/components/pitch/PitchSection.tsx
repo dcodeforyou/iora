@@ -334,13 +334,34 @@ export default function PitchSection() {
       // wasn't enough.
       section.style.backgroundColor = "var(--color-accent)";
       wrapper.style.backgroundColor = "var(--color-accent)";
-      const kicker = wrapper.querySelector<HTMLElement>("p");
+      // querySelector (first-match) was fine back when this wrapper only
+      // ever had exactly one <p> (the kicker) and one <span> (the h2's
+      // accent word) — adding the support paragraph below the headline
+      // introduced a SECOND <p> and a SECOND <span> (its own "60-day plan"
+      // emphasis), which first-match silently ignored: they kept their
+      // ORIGINAL text-chalk-muted/text-accent classes straight through
+      // commit, reading as low-contrast grey text and an invisible
+      // orange-on-orange span once this permanent orange background took
+      // over. querySelectorAll + explicit indexing recolors all of them.
+      const paragraphs = wrapper.querySelectorAll<HTMLElement>("p");
+      const spans = wrapper.querySelectorAll<HTMLElement>("span");
+      // Third <p> is the guarantee fine print, added after the CTA —
+      // same querySelectorAll approach as above so it doesn't repeat the
+      // exact bug this file's own comments already document for the
+      // support paragraph.
+      const [kicker, supportText, guaranteeText] = paragraphs;
       const h2 = wrapper.querySelector<HTMLElement>("h2");
-      const accentSpan = wrapper.querySelector<HTMLElement>("span");
+      const [h2AccentSpan, supportEmphasisSpan] = spans;
       const ctaEl = wrapper.querySelector<HTMLElement>("a");
       if (kicker) kicker.style.color = "color-mix(in srgb, var(--color-ink) 60%, transparent)";
       if (h2) h2.style.color = "var(--color-ink)";
-      if (accentSpan) accentSpan.style.color = "var(--color-chalk)";
+      if (h2AccentSpan) h2AccentSpan.style.color = "var(--color-chalk)";
+      if (supportText) supportText.style.color = "var(--color-chalk)";
+      if (supportEmphasisSpan) supportEmphasisSpan.style.color = "var(--color-ink)";
+      // Full chalk white, not the translucent-ink tone this used to use —
+      // that read as flat grey against the solid orange, same fix as
+      // supportText above (matches the ghost copy's own static color).
+      if (guaranteeText) guaranteeText.style.color = "var(--color-chalk)";
       if (ctaEl) {
         ctaEl.style.backgroundColor = "var(--color-ink)";
         ctaEl.style.color = "var(--color-chalk)";
@@ -362,13 +383,18 @@ export default function PitchSection() {
     const releaseOrangeState = () => {
       section.style.backgroundColor = "";
       wrapper.style.backgroundColor = "";
-      const kicker = wrapper.querySelector<HTMLElement>("p");
+      const paragraphs = wrapper.querySelectorAll<HTMLElement>("p");
+      const spans = wrapper.querySelectorAll<HTMLElement>("span");
+      const [kicker, supportText, guaranteeText] = paragraphs;
       const h2 = wrapper.querySelector<HTMLElement>("h2");
-      const accentSpan = wrapper.querySelector<HTMLElement>("span");
+      const [h2AccentSpan, supportEmphasisSpan] = spans;
       const ctaEl = wrapper.querySelector<HTMLElement>("a");
       if (kicker) kicker.style.color = "";
       if (h2) h2.style.color = "";
-      if (accentSpan) accentSpan.style.color = "";
+      if (h2AccentSpan) h2AccentSpan.style.color = "";
+      if (supportText) supportText.style.color = "";
+      if (supportEmphasisSpan) supportEmphasisSpan.style.color = "";
+      if (guaranteeText) guaranteeText.style.color = "";
       if (ctaEl) {
         ctaEl.style.backgroundColor = "";
         ctaEl.style.color = "";
@@ -671,6 +697,22 @@ export default function PitchSection() {
 
       if (!lens) {
         lens = createGrowingLens(lensEl, {
+          // Real Android testing: this lens's real displacement path
+          // (three feDisplacementMap passes + two feBlends, backdrop-
+          // filter'd live, growing to viewport-diagonal size every frame
+          // for ~1.1s) reported directly as laggy on Android phones —
+          // `isChromiumBrowser` alone can't distinguish a desktop GPU
+          // from a budget Android one (Android Chrome's UA matches it
+          // just as much as desktop Chrome's does), so it needs an
+          // explicit push here. Reuses this same effect's own `isMobile`
+          // (viewport width, the same convention as every other mobile
+          // adaptation in this file) rather than sniffing "Android"
+          // directly — Android tablets/wide-viewport devices keep the
+          // real effect, exactly like every other perf adaptation here is
+          // viewport-driven, not device-class-driven. iOS Safari never
+          // had this problem (already excluded via isChromiumBrowser
+          // itself), so this only ever changes Android's own path.
+          forceFallback: isMobile,
           scale: -130,
           // Wider RGB scale spread = more visible color fringing at the
           // rim (the actual source of the chromatic look — each channel
@@ -831,11 +873,20 @@ export default function PitchSection() {
         className="sticky top-0 flex h-svh w-full flex-col items-center justify-center gap-10 px-6 py-32 text-center"
       >
         <p className="font-mono-kicker text-xs uppercase tracking-[0.3em] text-chalk-muted">[ the pitch ]</p>
-        <h2 className="max-w-4xl font-display text-4xl font-semibold leading-tight text-chalk sm:text-6xl md:text-7xl">
-          We&apos;re not here to talk about us.
-          <br />
-          <span className="text-accent">We&apos;re here to talk about you.</span>
+        {/* Stepped down a size from the old two-line headline's own scale
+            (4xl/6xl/7xl) — "Let's build your growth ecosystem." is one
+            longer sentence, not two short punchy fragments, and dropping it
+            in at the original size read too heavy against the support line
+            and button below it. */}
+        <h2 className="max-w-3xl font-display text-3xl font-semibold leading-tight text-chalk sm:text-5xl md:text-6xl">
+          A 60-day growth sprint. Clear targets.{" "}
+          <span className="text-accent">Real accountability.</span>
         </h2>
+        <p className="max-w-xl text-base leading-relaxed text-chalk-muted sm:text-lg">
+          We build, launch and improve your connected growth system around agreed goals
+          for qualified enquiries, bookings or sales. You&apos;ll know what we&apos;re
+          delivering, when it goes live and how we&apos;ll measure progress.
+        </p>
         <a
           ref={ctaRef}
           href="https://calendly.com/dcodeforyou"
@@ -845,6 +896,21 @@ export default function PitchSection() {
         >
           Book a call
         </a>
+        {/* Guarantee fine print — deliberately small/muted and pulled up
+            tight under the button (-mt-6 fights the wrapper's own gap-10,
+            which would otherwise read as too much air for a caption this
+            size) rather than given its own visual weight. It's a real
+            commitment, not a headline claim. Shortened to fit one line at
+            EVERY width down to a narrow phone (no max-w cap, no wrap) —
+            the original full sentence wrapped to 2 lines even on desktop.
+            whitespace-nowrap is the actual one-line guarantee; the smaller
+            mobile size is just what keeps it legible at that width, not
+            what's preventing the wrap. Italic reads as "fine print"/terms
+            register, same convention as the emphasis words elsewhere in
+            this section. */}
+        <p className="-mt-6 whitespace-nowrap text-[10px] italic text-chalk-muted sm:text-xs">
+          Miss day-60 targets? 30 more days, no service fee.
+        </p>
         {/* Hero's own "Scroll" hint, reused here — only shown once
             committed (see commitOrangeState/releaseOrangeState above).
             Opacity-0 by default via the style attribute matches every
@@ -873,11 +939,20 @@ export default function PitchSection() {
       >
         <div className="flex h-svh w-full flex-col items-center justify-center gap-10 px-6 py-32 text-center">
           <p className="font-mono-kicker text-xs uppercase tracking-[0.3em] text-ink/60">[ the pitch ]</p>
-          <h2 className="max-w-4xl font-display text-4xl font-semibold leading-tight text-ink sm:text-6xl md:text-7xl">
-            We&apos;re not here to talk about us.
-            <br />
-            <span className="text-chalk">We&apos;re here to talk about you.</span>
+          <h2 className="max-w-3xl font-display text-3xl font-semibold leading-tight text-ink sm:text-5xl md:text-6xl">
+            A 60-day growth sprint. Clear targets.{" "}
+            <span className="text-chalk">Real accountability.</span>
           </h2>
+          {/* Full chalk white, not a translucent ink — this sits directly on
+              the solid accent-orange background (unlike the kicker/h2 above,
+              which already had strong enough weight/size to read fine at
+              lower opacity), and a muted/translucent tone here read flat
+              against the orange, reported directly. */}
+          <p className="max-w-xl text-base leading-relaxed text-chalk sm:text-lg">
+            We build, launch and improve your connected growth system around agreed goals
+            for qualified enquiries, bookings or sales. You&apos;ll know what we&apos;re
+            delivering, when it goes live and how we&apos;ll measure progress.
+          </p>
           <a
             href="https://calendly.com/dcodeforyou"
             target="_blank"
@@ -887,6 +962,12 @@ export default function PitchSection() {
           >
             Book a call
           </a>
+          {/* Full chalk white here too (was text-ink/70) — same lesson as
+              the support paragraph above: a translucent tone reads flat/
+              grey against the solid orange, reported directly. */}
+          <p className="-mt-6 whitespace-nowrap text-[10px] italic text-chalk sm:text-xs">
+            Miss day-60 targets? 30 more days, no service fee.
+          </p>
         </div>
       </div>
       {/* The real liquid-glass lens — a plain DOM circle with a real

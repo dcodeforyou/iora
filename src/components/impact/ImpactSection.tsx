@@ -22,7 +22,7 @@ function useIsClient() {
   );
 }
 
-const LEAD_TEXT = "Then we hit";
+const LEAD_TEXT = "Connect attention";
 const LEAD_CHARS = LEAD_TEXT.split("");
 
 /**
@@ -666,7 +666,7 @@ export default function ImpactSection() {
               ref={markRef}
               className="relative inline-block px-1 italic text-accent before:absolute before:-inset-x-1 before:-inset-y-0.5 before:-z-10 before:skew-x-[-10deg] before:bg-chalk/95 before:content-['']"
             >
-              the mark
+              to revenue.
             </span>
           </h2>
         </div>

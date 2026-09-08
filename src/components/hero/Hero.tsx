@@ -198,18 +198,30 @@ export default function Hero() {
 
       <div
         ref={headlineRef}
-        className="pointer-events-none relative z-10 flex flex-col items-center gap-4 px-6 text-center"
+        className="pointer-events-none relative z-10 flex flex-col items-center gap-3 px-6 text-center"
         style={{ opacity: 0, filter: "blur(10px)" }}
       >
+        {/* Small lead-in line, kept from the original single-line headline
+            — the CRT/shard visual around this beat is already dramatizing
+            "breaking through the noise," so this stays as the setup rather
+            than being dropped for the ecosystem line below. Same wrapper
+            (headlineRef) drives both lines' opacity/blur/transform/flicker
+            together as one unit — no separate reveal timing needed. */}
+        {/* text-chalk/80, not text-chalk-muted — the muted token (#8a8a92)
+            read as too close to the dark background to comfortably read,
+            reported directly. This keeps it visibly secondary to the big
+            line below without dropping all the way to full white. */}
+        <p className="font-mono-kicker text-sm text-chalk/80 sm:text-base">
+          We break through the noise.
+        </p>
+        {/* The real payoff — "More Leads." carries the accent, same
+            last-clause-gets-the-color convention as "the noise." used to
+            (and as Impact's "the mark" / now "to revenue." still does).
+            Two short sentences now, not one line split by a "|" divider. */}
         <h1 className="max-w-4xl font-display text-4xl font-bold leading-[1.05] text-chalk [text-shadow:0_1px_0_rgba(11,12,16,0.7),0_4px_14px_rgba(11,12,16,0.45),0_16px_40px_rgba(11,12,16,0.4)] sm:text-6xl md:text-7xl">
-          {/* Italic + accent on "the noise." now applies on every
-              breakpoint (per direct request, web included). The forced
-              line break stays mobile-only (<br> is display:none at sm+)
-              — desktop keeps its own natural wrap behavior, just with
-              this span's color/style now matching mobile's. */}
-          We break through{" "}
+          Stronger brand.{" "}
           <br className="sm:hidden" />
-          <span className="italic text-accent">the noise.</span>
+          <span className="italic text-accent">More Leads.</span>
         </h1>
       </div>
 
