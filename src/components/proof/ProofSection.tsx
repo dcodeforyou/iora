@@ -171,6 +171,32 @@ export default function ProofSection() {
   // mobile-only effect below), matching the CSS below that shows it at
   // rest instead of gating it behind a hover that can't happen there.
   const glimpseVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+  // Mobile playback state — read/written by both the mount-time
+  // IntersectionObserver effect below AND the scroll-driven carousel
+  // effect further down (updateProof), which is why these live at
+  // component scope rather than inside either effect individually.
+  const sectionVisibleRef = useRef(false);
+  const activeCardIndexRef = useRef(0);
+  // Only ONE glimpse video plays at a time on mobile — the carousel only
+  // ever shows one card centered (occasionally two, mid-transition), but
+  // the previous version played all three continuously for the entire
+  // time Proof was anywhere on screen, regardless of which card was
+  // actually visible. Three simultaneously-decoding video streams for the
+  // whole ~500vh scroll range this section spans is real, sustained
+  // mobile CPU/battery cost for two videos nobody's looking at — reported
+  // directly as "cards extremely slow" / laggy on phone. Desktop is
+  // untouched (still hover-gated via handleGlimpseEnter/Leave below).
+  const applyGlimpsePlayback = () => {
+    if (window.innerWidth >= HERO_VIDEO_BREAKPOINT) return;
+    glimpseVideoRefs.current.forEach((video, i) => {
+      if (!video) return;
+      if (sectionVisibleRef.current && i === activeCardIndexRef.current) {
+        void video.play().catch(() => {});
+      } else {
+        video.pause();
+      }
+    });
+  };
   const handleGlimpseEnter = (index: number) => {
     const video = glimpseVideoRefs.current[index];
     if (!video) return;
@@ -185,21 +211,23 @@ export default function ProofSection() {
     glimpseVideoRefs.current[index]?.pause();
   };
 
-  // Mobile-only continuous playback — explicit JS play(), same reasoning
-  // as ResolutionSection's own mobile video: the bare `autoplay` HTML
+  // Mobile-only playback — explicit JS play(), same reasoning as
+  // ResolutionSection's own mobile video: the bare `autoplay` HTML
   // attribute has been unreliable on this site's mobile testing, and
   // adding it unconditionally would also autoplay these on desktop
   // (undesired — desktop keeps its existing hover-gated behavior
   // untouched).
   //
   // IntersectionObserver-gated (threshold 0, observing the section
-  // itself), not a fire-once mount effect — an earlier version called
-  // .play() once at mount and never touched these again, which meant all
-  // three glimpse clips kept decoding continuously for the ENTIRE rest of
-  // the session the moment anyone scrolled past Proof, exactly the
-  // "avoidable battery/CPU cost" the comment above already identifies and
-  // solves for desktop's hover-gated path — mobile just never got the
-  // same treatment. Pausing (not unmounting) on exit and resuming on
+  // itself) for the on/off-screen half of the decision; applyGlimpsePlayback
+  // (defined above) owns the other half — WHICH of the three is allowed to
+  // play, driven by activeCardIndexRef (updated every scroll tick in
+  // updateProof below). An earlier version played all three simultaneously
+  // for the entire time any part of Proof was on screen — correct for
+  // "should decode at all," wrong for "how many at once": this carousel
+  // only ever shows ONE card at a time, so two of those three decodes were
+  // always wasted, reported directly as "cards extremely slow"/laggy on
+  // real phones. Pausing (not unmounting) on exit and resuming on
   // re-entry keeps this consistent with every other autoplaying layer on
   // this site (HeroScene's Canvas frameloop, ProofGlassCanvas's WebGL
   // render loop) which all pause off-screen per AGENTS.md.
@@ -208,14 +236,8 @@ export default function ProofSection() {
     if (!section || window.innerWidth >= HERO_VIDEO_BREAKPOINT) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        glimpseVideoRefs.current.forEach((video) => {
-          if (!video) return;
-          if (entry.isIntersecting) {
-            void video.play().catch(() => {});
-          } else {
-            video.pause();
-          }
-        });
+        sectionVisibleRef.current = entry.isIntersecting;
+        applyGlimpsePlayback();
       },
       { threshold: 0 },
     );
@@ -508,6 +530,19 @@ export default function ProofSection() {
     // shape is at top-left first, then snaps into place" bug.
     const updateProof = (self: ScrollTrigger) => {
         const p = self.progress;
+
+        // Drives applyGlimpsePlayback's mobile video gating (see above) —
+        // which single card is centered right now, using the same
+        // DWELL/TRANSITION boundaries the track's own xPercent already
+        // switches on. Only calls play()/pause() on an actual index
+        // change, not every scroll tick (this function runs on every
+        // scrubbed frame).
+        const newActiveIndex = p < TRANSITION1_END ? 0 : p < TRANSITION2_END ? 1 : 2;
+        if (newActiveIndex !== activeCardIndexRef.current) {
+          activeCardIndexRef.current = newActiveIndex;
+          applyGlimpsePlayback();
+        }
+
         const viewportHeight = window.innerHeight;
         const restingY = getRestingY(viewportHeight);
         const hopHeight = HOP_HEIGHT;
