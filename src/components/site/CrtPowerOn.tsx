@@ -6,6 +6,7 @@ import { gsap } from "@/lib/scroll/gsapSetup";
 import { getLenisInstance, lockLenisScroll, unlockLenisScroll } from "@/lib/scroll/lenisInstance";
 import {
   signalBlend,
+  shardShadersReady,
   HERO_PIN_VH_MULTIPLIER,
   HERO_ENTRY_SETTLE_PROGRESS,
   HERO_EXPLODE_SETTLE,
@@ -13,7 +14,7 @@ import {
   HERO_IMPACT_TIME,
   HERO_SIGNAL_BLEND_DURATION,
 } from "@/lib/scroll/heroEntry";
-import { initHeroVideo, playHeroVideo, getActiveVideoKey } from "@/lib/scroll/heroVideo";
+import { initHeroVideo, playHeroVideo, getActiveVideoKey, heroVideoProgress } from "@/lib/scroll/heroVideo";
 import { initHeroMusic } from "@/lib/scroll/heroMusic";
 
 // Real telegram convention: "STOP" stood in for a period, since
@@ -125,6 +126,9 @@ export default function CrtPowerOn() {
   const charRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const signalLostRef = useRef<HTMLParagraphElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const loaderLabelRef = useRef<HTMLParagraphElement>(null);
+  const loaderTrackRef = useRef<HTMLDivElement>(null);
+  const loaderFillRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // The DOM nodes below are now always rendered (see the `display`
@@ -153,12 +157,15 @@ export default function CrtPowerOn() {
       const textWrap = textWrapRef.current;
       const signalLost = signalLostRef.current;
       const button = buttonRef.current;
+      const loaderLabel = loaderLabelRef.current;
+      const loaderTrack = loaderTrackRef.current;
       if (flash && topBar && bottomBar && textWrap && signalLost && button) {
         gsap.set([topBar, bottomBar], { scaleY: 0 });
         gsap.set(flash, { opacity: 0 });
         gsap.set(textWrap, { opacity: 0 });
         gsap.set(signalLost, { opacity: 0 });
         gsap.set(button, { opacity: 0, pointerEvents: "none" });
+        if (loaderLabel && loaderTrack) gsap.set([loaderLabel, loaderTrack], { opacity: 0 });
         signalBlend.value = 1;
       }
       return;
@@ -181,6 +188,9 @@ export default function CrtPowerOn() {
       // No button, no lock, no wait — reduced motion skips straight to the
       // already-entered state (see AGENTS.md: show final states directly).
       gsap.set(button, { display: "none" });
+      if (loaderLabelRef.current && loaderTrackRef.current) {
+        gsap.set([loaderLabelRef.current, loaderTrackRef.current], { display: "none" });
+      }
       signalBlend.value = 1;
       return;
     }
@@ -225,6 +235,10 @@ export default function CrtPowerOn() {
     gsap.set(chars, { opacity: 0, scale: 1.7 });
     gsap.set(signalLost, { opacity: 0 });
     gsap.set(button, { opacity: 0, pointerEvents: "none" });
+    if (loaderLabelRef.current && loaderTrackRef.current && loaderFillRef.current) {
+      gsap.set([loaderLabelRef.current, loaderTrackRef.current], { opacity: 0, display: "block" });
+      loaderFillRef.current.style.width = "0%";
+    }
     signalBlend.value = 0;
 
     // Building/starting the timeline is deferred two animation frames
@@ -242,12 +256,11 @@ export default function CrtPowerOn() {
     let rafId1 = 0;
     let rafId2 = 0;
     let tl: gsap.core.Timeline | null = null;
+    let revealTl: gsap.core.Timeline | null = null;
+    let pollCall: gsap.core.Tween | null = null;
     rafId1 = requestAnimationFrame(() => {
       rafId2 = requestAnimationFrame(() => {
-        // No onComplete here anymore — the boot sequence's job now ends
-        // at "button visible and clickable," not "scroll unlocked." See
-        // handleEnter below for what happens next.
-        tl = gsap.timeline();
+        tl = gsap.timeline({ onComplete: startLoadingBar });
         // A single, modest-brightness pulse — not full white, and not
         // repeating: one flash isn't the rapid strobing AGENTS.md's
         // flash-rate note warns about, that's about REPEATED flashing.
@@ -290,28 +303,97 @@ export default function CrtPowerOn() {
         // label commenting on the message above it, not part of the
         // message itself.
         tl.to(signalLost, { opacity: 1, duration: 0.3, ease: "power1.out" }, "+=0.15");
-        // The entry button — the actual end of the automatic boot
-        // sequence now. Same flicker-catch entrance AttentionSection's
-        // own words use (a few jagged opacity swings before settling),
-        // not a plain fade — reads as "catching a signal" like the rest
-        // of this boot sequence, rather than a generic UI fade-in. Then
-        // becomes clickable (`pointerEvents: "auto"` only set once fully
-        // visible, so a click can't land mid-flicker). Nothing beyond
-        // this in the timeline: the sequence just stops here and waits,
-        // scroll still locked, until handleEnter fires.
-        tl.to(button, { opacity: 0.5, duration: 0.045 }, "+=0.2")
-          .to(button, { opacity: 0.04, duration: 0.035 })
-          .to(button, { opacity: 0.65, duration: 0.045 })
-          .to(button, { opacity: 0.08, duration: 0.035 })
-          .to(button, { opacity: 1, duration: 0.32, ease: "power2.out" })
-          .set(button, { pointerEvents: "auto" });
+        // Boot sequence's own job ends here now — at "signal lost has
+        // faded in," not "button visible." startLoadingBar (onComplete
+        // above) takes over from here: a real loading bar, gated on
+        // actual asset readiness, replaces what used to be a fixed
+        // `+=0.2` timeline offset straight into the button reveal.
       });
     });
+
+    // Combines hero video buffer progress (the dominant, byte-heavy part)
+    // with the WebGL shard shader compile (fast but binary — either done
+    // or not) into one bar. Weighted toward video since that's genuinely
+    // most of the wait; the shader compile is usually much faster but was
+    // the exact cause of a real, separately-documented hitch (see
+    // HeroScene.tsx's own compileAsync comment) if entry happens before
+    // it's done — worth a real slice of the bar, not just an afterthought.
+    const combinedProgress = () => heroVideoProgress.value * 0.85 + (shardShadersReady.value ? 0.15 : 0);
+
+    function startLoadingBar() {
+      const label = loaderLabelRef.current;
+      const track = loaderTrackRef.current;
+      const fill = loaderFillRef.current;
+      if (!label || !track || !fill) {
+        revealButton();
+        return;
+      }
+      gsap.to([label, track], { opacity: 1, duration: 0.3, ease: "power1.out" });
+
+      // Same recursive gsap.delayedCall retry shape this codebase already
+      // uses elsewhere (see ProofSection/ImpactSection's own trySelfHeal) —
+      // polls readiness roughly 10x/sec rather than subscribing, matching
+      // the plain-mutable-object convention these flags already follow.
+      // MAX_WAIT is a safety net, not a target: a genuinely broken/offline
+      // fetch should never trap a visitor on this screen forever — past
+      // that point entry proceeds anyway, same as before this loading bar
+      // existed at all.
+      const MAX_WAIT_SECONDS = 12;
+      let waited = 0;
+      const poll = () => {
+        const p = Math.min(1, combinedProgress());
+        fill.style.width = `${p * 100}%`;
+        waited += 0.1;
+        if (p >= 1 || waited >= MAX_WAIT_SECONDS) {
+          revealButton();
+          return;
+        }
+        pollCall = gsap.delayedCall(0.1, poll);
+      };
+      poll();
+    }
+
+    function revealButton() {
+      const label = loaderLabelRef.current;
+      const track = loaderTrackRef.current;
+      if (!button) return;
+      // display:"none" once faded (not just opacity 0) — these are normal
+      // flex-flow siblings of the button inside textWrap's own flex
+      // column, not absolutely positioned, so leaving them at opacity:0
+      // would still hold their layout space and push the button down
+      // below where the loader used to be instead of the button taking
+      // that same slot.
+      const hasLoader = !!(label && track);
+      if (hasLoader) {
+        gsap.to([label, track], {
+          opacity: 0,
+          duration: 0.25,
+          ease: "power1.out",
+          onComplete: () => gsap.set([label, track], { display: "none" }),
+        });
+      }
+      revealTl = gsap.timeline({ delay: hasLoader ? 0.15 : 0 });
+      // The entry button — same flicker-catch entrance AttentionSection's
+      // own words use (a few jagged opacity swings before settling), not a
+      // plain fade — reads as "catching a signal" like the rest of this
+      // boot sequence, rather than a generic UI fade-in. Then becomes
+      // clickable (`pointerEvents: "auto"` only set once fully visible, so
+      // a click can't land mid-flicker).
+      revealTl
+        .to(button, { opacity: 0.5, duration: 0.045 })
+        .to(button, { opacity: 0.04, duration: 0.035 })
+        .to(button, { opacity: 0.65, duration: 0.045 })
+        .to(button, { opacity: 0.08, duration: 0.035 })
+        .to(button, { opacity: 1, duration: 0.32, ease: "power2.out" })
+        .set(button, { pointerEvents: "auto" });
+    }
 
     return () => {
       cancelAnimationFrame(rafId1);
       cancelAnimationFrame(rafId2);
       tl?.kill();
+      pollCall?.kill();
+      revealTl?.kill();
       // Deliberately NOT unlocking scroll here (an earlier version did,
       // unconditionally) — this cleanup's only real caller in practice is
       // React Strict Mode's synthetic dev-only double-invoke (mount →
@@ -568,6 +650,30 @@ export default function CrtPowerOn() {
             ))}
           </p>
         ))}
+        {/* Real loading bar — fills based on actual hero-video buffer
+            progress + WebGL shard-shader compile state (see
+            startLoadingBar/combinedProgress above), not a simulated/timed
+            fake. Same kicker-label register as "[ signal lost ]" above it
+            (brackets, mono, tracked-out, muted), so it reads as another
+            status line in the same transmission, not a bolted-on UI
+            widget. Sits in the button's own spot — the button only
+            appears once this finishes (see revealButton). Static
+            opacity-0 is the SSR-safe default, same convention as every
+            other element on this screen. */}
+        <p
+          ref={loaderLabelRef}
+          aria-hidden="true"
+          className="mt-8 font-mono-kicker text-xs uppercase tracking-[0.3em] text-chalk-muted opacity-0"
+        >
+          [ preparing iora world ]
+        </p>
+        <div
+          ref={loaderTrackRef}
+          aria-hidden="true"
+          className="mt-3 h-[2px] w-48 overflow-hidden bg-chalk/15 opacity-0 sm:w-64"
+        >
+          <div ref={loaderFillRef} className="h-full w-0 bg-accent" />
+        </div>
         {/* The only way past this screen — see handleEnter. Reads as a
             third line of the SAME telegram transmission above it, not a
             separate UI element bolted on: same uppercase mono-kicker

@@ -28,6 +28,7 @@ const VIDEO_PLAYBACK_RATE = 0.3;
 export default function ResolutionSection() {
   const markRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
   const mobileVideoRef = useRef<HTMLVideoElement>(null);
   const mobileVideoContainerRef = useRef<HTMLDivElement>(null);
 
@@ -96,6 +97,29 @@ export default function ResolutionSection() {
         // already-correct state alone — it can no longer clobber it.
         const pitchCommitted = document.getElementById("pitch-section")?.dataset.committed === "true";
         hint.style.opacity = pitchCommitted ? "1" : "";
+      },
+      { threshold: 0 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Desktop model-loop video — same IntersectionObserver-gated play/pause
+  // as the mobile video above, previously missing entirely here (this one
+  // relied solely on the `autoPlay` HTML attribute, which decodes
+  // regardless of scroll position the instant the element mounts).
+  useEffect(() => {
+    const el = videoContainerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const video = videoRef.current;
+        if (!video) return;
+        if (entry.isIntersecting) {
+          void video.play().catch(() => {});
+        } else {
+          video.pause();
+        }
       },
       { threshold: 0 },
     );
@@ -175,10 +199,19 @@ export default function ResolutionSection() {
           just the video. Desktop keeps the small circular spinning
           model + wordmark instead (see below, hidden on mobile). */}
       <div ref={mobileVideoContainerRef} className="absolute inset-0 z-0 block sm:hidden">
+        {/* No `autoPlay` attribute — that fetches+plays the instant this
+            mounts regardless of scroll position or which breakpoint is
+            actually showing it, found while investigating reports of the
+            whole mobile site loading very slowly. Playback is entirely
+            JS-driven now (see the IntersectionObserver effect above),
+            gated on this actually being in view. preload="metadata" keeps
+            the CSS-hidden desktop viewport's copy of this element (still
+            in the DOM, just `sm:hidden`) from fetching more than a few KB
+            of header data it'll never need. */}
         <video
           ref={mobileVideoRef}
           src="/iora-footer.mp4"
-          autoPlay
+          preload="metadata"
           loop
           muted
           playsInline
@@ -206,11 +239,18 @@ export default function ResolutionSection() {
           There's no source mesh for this (only the rendered clip), so
           real orbit/camera control isn't possible — this is a flat CSS
           spin of the whole frame instead. */}
-      <div className="pointer-events-none absolute inset-0 z-10 hidden items-center justify-center sm:flex">
+      <div
+        ref={videoContainerRef}
+        className="pointer-events-none absolute inset-0 z-10 hidden items-center justify-center sm:flex"
+      >
+        {/* No `autoPlay` — same fix and reasoning as the mobile video
+            above. Playback now driven by the IntersectionObserver effect
+            added above (previously this element had no observer at all,
+            relying entirely on the native attribute). */}
         <video
           ref={videoRef}
           src="/model-loop.mp4"
-          autoPlay
+          preload="metadata"
           loop
           muted
           playsInline

@@ -13,6 +13,7 @@ import { isChromiumBrowser } from "@/components/pitch/liquidGlassLens";
 import { playShatter, startTvStatic, stopTvStatic } from "@/lib/sound/sfx";
 import {
   signalBlend,
+  shardShadersReady,
   HERO_EXPLODE_START,
   HERO_EXPLODE_SETTLE,
   HERO_SCREEN_BREAK_END,
@@ -358,7 +359,15 @@ function SceneContent({ progress, pointerState }: SceneContentProps) {
   useEffect(() => {
     if (hasCompiledRef.current) return;
     hasCompiledRef.current = true;
-    void gl.compileAsync(scene, camera);
+    // Flips CrtPowerOn's own loading-bar readiness flag — see
+    // heroEntry.ts's own doc comment on shardShadersReady. This is the
+    // exact hitch that flag exists to wait out: entering before this
+    // resolves is what used to produce the multi-hundred-ms-to-second
+    // freeze this comment block already documents, just previously with
+    // nothing gating entry on it finishing first.
+    void gl.compileAsync(scene, camera).then(() => {
+      shardShadersReady.value = true;
+    });
   }, [gl, scene, camera]);
 
   return (

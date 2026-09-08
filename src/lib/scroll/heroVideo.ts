@@ -93,13 +93,21 @@ export function getActiveVideoKey(): HeroVideoKey {
 // Plain mutable object (not React state) — same pattern as signalBlend/
 // progress elsewhere in this scroll layer. `.el` is set the instant the
 // element exists so HeroScene's VideoTexture can bind to it immediately;
-// `.ready` flips true on `canplaythrough` — informational only, nothing in
-// the click-to-enter flow blocks on it (see initHeroVideo's own comment).
+// `.ready` flips true on `canplaythrough`.
 export const heroVideoState: { el: HTMLVideoElement | null; ready: boolean; key: HeroVideoKey | null } = {
   el: null,
   ready: false,
   key: null,
 };
+
+// 0-1, updated live from the video's own `progress` event (buffered range
+// vs. duration) — CrtPowerOn's loading bar polls this directly (same
+// plain-mutable-object convention as signalBlend/shardShadersReady) to
+// drive real width, not a simulated/fake progress animation. Snaps to 1 on
+// canplaythrough regardless of the buffered-math above, since "can play
+// through without stalling" is the actual guarantee that matters, not
+// whether the byte-range math landed exactly on 1.0.
+export const heroVideoProgress = { value: 0 };
 
 let loopHandlerInstalled = false;
 
@@ -108,33 +116,29 @@ let loopHandlerInstalled = false;
  * hidden <video> element for whichever cut this viewport uses, and calls
  * `.load()` immediately. Meant to be invoked as the very first thing
  * CrtPowerOn's mount effect does, well before its own boot timeline's two
- * deferred rAFs even run.
+ * deferred rAFs even run — bytes need to start flowing over the network
+ * before "[ signal lost ]" has even faded in.
  *
- * preload="metadata", NOT "auto" — an earlier version set "auto" specifically
- * so the full file would already be buffering before "[ signal lost ]" even
- * faded in, on the theory that a background fetch during that dwell time was
- * "free." Real-device testing said otherwise: reported directly as the
- * browser's own page-load indicator still spinning well after scrolling deep
- * into the site, and general sluggishness (including in totally unrelated
- * sections, e.g. Attention) that tracked with it — a multi-MB fetch held open
- * for however long a real mobile network takes isn't free, it competes for
- * bandwidth and main-thread event handling the whole time it runs, for
- * however many seconds or tens of seconds that turns out to be on a slow
- * connection. `.play()` (see playHeroVideo below) still triggers the browser
- * to fetch and buffer the real media data the moment the entry click actually
- * happens — this only changes WHEN the heavy fetch starts (on genuine user
- * interaction, not unconditionally on page load), not whether it eventually
- * happens. Also called from HeroScene's SceneContent so the VideoTexture has
- * a real element to bind to regardless of component mount order.
+ * preload="auto" — a real, deliberate eager fetch. An earlier version tried
+ * switching this to "metadata" (deferring the real fetch to the entry
+ * click) after real-device reports of the browser's own page-load indicator
+ * still spinning deep into the scroll experience, but that traded one
+ * problem for a worse one: the entry click itself then had to wait on a
+ * cold fetch, reported directly as "video starts too late." The actual fix
+ * is CrtPowerOn's own loading bar (see heroVideoProgress above and
+ * shardShadersReady in heroEntry.ts) — it gates the "Enter Iora" button on
+ * this eager fetch (and the WebGL shard shader compile) actually finishing,
+ * so the wait is a real, visible, intentional loading state instead of an
+ * invisible background fetch racing whatever the user does next. That's
+ * what makes eager preload safe again: the click only becomes available
+ * once this is genuinely ready, not "as ready as it happened to get."
+ *
+ * Also called from HeroScene's SceneContent so the VideoTexture has a real
+ * element to bind to regardless of component mount order.
  *
  * Deliberately loads ONLY the active platform's file, not both — loading
  * the unused cut too would compete for the exact bandwidth this function
  * exists to protect, for a file that will never play this session.
- *
- * Not gated on network speed: `.play()` is called unconditionally on the
- * entry click regardless of `.ready` — browsers handle playback of a
- * partially-buffered video natively (play what's downloaded, keep
- * buffering), and this site has no loading-spinner state to show instead.
  */
 export function initHeroVideo(): HTMLVideoElement {
   if (heroVideoState.el) return heroVideoState.el;
@@ -164,7 +168,7 @@ export function initHeroVideo(): HTMLVideoElement {
   video.defaultMuted = video.muted;
   subscribeSound(() => applyMuted(video));
   video.playsInline = true;
-  video.preload = "metadata";
+  video.preload = "auto";
   // Off-screen but genuinely attached to the document — some browsers
   // (older iOS Safari in particular) throttle or refuse to decode/autoplay
   // a video element that was never attached to the DOM at all.
@@ -179,7 +183,18 @@ export function initHeroVideo(): HTMLVideoElement {
 
   video.addEventListener("canplaythrough", () => {
     heroVideoState.ready = true;
+    heroVideoProgress.value = 1;
   }, { once: true });
+  // Live buffered-vs-duration estimate, for the loading bar's real width —
+  // `duration` isn't known until metadata loads, and `buffered` can report
+  // multiple disjoint ranges (a seek would create a second one, though
+  // nothing here seeks) — reading the LAST range's end covers the common
+  // single-range progressive-download case this is actually used for.
+  video.addEventListener("progress", () => {
+    if (!video.duration || !isFinite(video.duration) || video.buffered.length === 0) return;
+    const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+    heroVideoProgress.value = Math.min(1, bufferedEnd / video.duration);
+  });
 
   // Set after the listeners/attributes above, then load() — src assignment
   // is what actually kicks off the network request, so everything that

@@ -22,6 +22,14 @@
 // work with zero extra bookkeeping.
 export const signalBlend = { value: 0 };
 
+// Set once by HeroScene's own gl.compileAsync warm-up (see SceneContent's
+// hasCompiledRef effect) — plain mutable object, same convention as
+// signalBlend above, polled (not subscribed to) by CrtPowerOn's own loading
+// bar while the entry button is gated on real readiness rather than a fixed
+// timer. Starts false; a real page reload gets a fresh object back at
+// false, matching every other one-shot piece of this boot sequence.
+export const shardShadersReady = { value: false };
+
 // Single source of truth for Hero's pin distance, shared between Hero.tsx
 // (which uses it for the real ScrollTrigger `end` value) and CrtPowerOn.tsx
 // (which needs the SAME number to compute a real pixel scroll target for
