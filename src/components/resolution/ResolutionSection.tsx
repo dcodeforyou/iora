@@ -44,11 +44,35 @@ export default function ResolutionSection() {
   // directly. Reaching into Pitch's DOM by id (not a shared ref/store)
   // matches this codebase's own established cross-section signal pattern
   // (see marble.dataset.formed/landed/exited elsewhere).
+  // Also owns this video's own play/pause (see the block below the hint
+  // logic in the callback) rather than a second observer on the same
+  // element — reused for the same reason HeroScene reuses one `isVisible`
+  // signal for both video volume and music focus. Before this, a separate
+  // mount-only effect called .play() here exactly once and never touched
+  // it again, which meant it kept decoding for the ENTIRE rest of the
+  // session the instant anyone scrolled past it — the exact same
+  // always-on-video oversight fixed in ProofSection's own glimpse clips
+  // (see that file's own doc comment), just not yet applied here.
   useEffect(() => {
     const el = mobileVideoContainerRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
+        const video = mobileVideoRef.current;
+        if (video) {
+          // Explicit JS play()/pause(), not just the bare `autoplay`
+          // attribute — the bare attribute has been unreliable on this
+          // site's mobile testing (mobile-only report: this video not
+          // playing at all). `.catch(() => {})` since a muted+playsInline
+          // play() call shouldn't ever actually reject, but isn't worth
+          // surfacing if it somehow does.
+          if (entry.isIntersecting) {
+            void video.play().catch(() => {});
+          } else {
+            video.pause();
+          }
+        }
+
         const hint = document.getElementById("pitch-scroll-hint");
         if (!hint) return;
         if (entry.isIntersecting) {
@@ -77,19 +101,6 @@ export default function ResolutionSection() {
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
-
-  // Explicit JS play(), not just the bare `autoplay` attribute — every
-  // other autoplaying video on this site (Hero, Proof's glimpse clips)
-  // already does this rather than trusting `autoplay` alone, which has
-  // reportedly been unreliable here specifically (mobile-only report: this
-  // video not playing at all). `.catch(() => {})` since a muted+playsInline
-  // play() call shouldn't ever actually reject, but isn't worth surfacing
-  // if it somehow does.
-  useEffect(() => {
-    const video = mobileVideoRef.current;
-    if (!video) return;
-    void video.play().catch(() => {});
   }, []);
 
   useEffect(() => {

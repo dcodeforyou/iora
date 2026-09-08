@@ -183,14 +183,37 @@ export default function ProofSection() {
   // attribute has been unreliable on this site's mobile testing, and
   // adding it unconditionally would also autoplay these on desktop
   // (undesired — desktop keeps its existing hover-gated behavior
-  // untouched). Checked once at mount, matching this codebase's other
-  // resolved-once mobile breakpoint checks.
+  // untouched).
+  //
+  // IntersectionObserver-gated (threshold 0, observing the section
+  // itself), not a fire-once mount effect — an earlier version called
+  // .play() once at mount and never touched these again, which meant all
+  // three glimpse clips kept decoding continuously for the ENTIRE rest of
+  // the session the moment anyone scrolled past Proof, exactly the
+  // "avoidable battery/CPU cost" the comment above already identifies and
+  // solves for desktop's hover-gated path — mobile just never got the
+  // same treatment. Pausing (not unmounting) on exit and resuming on
+  // re-entry keeps this consistent with every other autoplaying layer on
+  // this site (HeroScene's Canvas frameloop, ProofGlassCanvas's WebGL
+  // render loop) which all pause off-screen per AGENTS.md.
   useEffect(() => {
-    if (window.innerWidth >= HERO_VIDEO_BREAKPOINT) return;
-    glimpseVideoRefs.current.forEach((video) => {
-      if (!video) return;
-      void video.play().catch(() => {});
-    });
+    const section = sectionRef.current;
+    if (!section || window.innerWidth >= HERO_VIDEO_BREAKPOINT) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        glimpseVideoRefs.current.forEach((video) => {
+          if (!video) return;
+          if (entry.isIntersecting) {
+            void video.play().catch(() => {});
+          } else {
+            video.pause();
+          }
+        });
+      },
+      { threshold: 0 },
+    );
+    observer.observe(section);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
