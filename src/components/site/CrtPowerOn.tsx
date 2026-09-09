@@ -161,12 +161,23 @@ const LOADER_MIN_VISIBLE_MS = 5100;
 // the top half is a real measurement, the bottom half is a floor.
 const LOADER_FILL_FLOOR = 0.5;
 
-// Single source of truth for the clip — the JSX's SSR-safe starting value
-// and the live updates in setLoaderFill have to agree exactly, and having
-// each compute the geometry itself is how they quietly drift apart.
-function loaderClip(p: number) {
+// Single source of truth for the fill level — the JSX's SSR-safe starting
+// value and the live updates in setLoaderFill have to agree exactly, and
+// having each compute the geometry itself is how they quietly drift apart.
+//
+// Returns just the inset percentage, not a whole clip-path, because the
+// level is published as ONE custom property on the wrapper and every
+// character's fill layer reads it from there in CSS. The earlier version
+// wrote a full clip-path string onto all 33 character layers on every
+// tick: 33 style mutations at 40ms, ~825 a second, on elements carrying
+// -webkit-text-stroke, during the exact window when the hero video is
+// buffering and the shard shaders are compiling. That is a real
+// main-thread cost on a phone and matches the "too much concurrent
+// compositing work" failure mode in the device diagnostic. One property
+// write now does the same job.
+function loaderFillTop(p: number) {
   const shown = LOADER_FILL_FLOOR + p * (1 - LOADER_FILL_FLOOR);
-  return `inset(${GLYPH_BOTTOM_PCT - shown * (GLYPH_BOTTOM_PCT - GLYPH_TOP_PCT)}% 0 0 0)`;
+  return `${GLYPH_BOTTOM_PCT - shown * (GLYPH_BOTTOM_PCT - GLYPH_TOP_PCT)}%`;
 }
 // Where the CAPS actually sit inside the fill layer's line box, as
 // percentages from its top. Even at `leading-none` the box is a full em
@@ -305,7 +316,6 @@ export default function CrtPowerOn() {
   // whichever one is due. Characters live below their own mask when idle,
   // so an off-duty phrase is invisible without needing to be hidden.
   const loaderCharRefs = useRef<(HTMLSpanElement | null)[]>([]);
-  const loaderFillRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
   useEffect(() => {
     // The DOM nodes below are now always rendered (see the `display`
@@ -529,20 +539,16 @@ export default function CrtPowerOn() {
     function setLoaderFill(p: number) {
       lastFillP = p;
       // `p` stays the RAW measured progress — the floor is applied only on
-      // the way to the screen (see loaderClip). Keeping the raw value is
+      // the way to the screen (see loaderFillTop). Keeping the raw value is
       // what lets revealButton's top-up still reason about whether the load
       // actually finished or timed out.
-      const clip = loaderClip(p);
-      // Applied to EVERY character of EVERY phrase, including the one
-      // currently off-screen. Each character's clip is measured against its
-      // own box, and all boxes share one line-height, so a single identical
-      // inset produces one continuous level line straight across the word
-      // rather than a per-letter staircase. Setting the idle phrase too
-      // means it is already at the correct level when it rises in, instead
-      // of visibly catching up on its first frame.
-      for (const fill of loaderFillRefs.current) {
-        if (fill) fill.style.clipPath = clip;
-      }
+      //
+      // ONE write, on the wrapper. Every character's fill layer clips
+      // against this same custom property, so they all move together for
+      // free — and because each character's box shares one line-height, an
+      // identical inset still produces one continuous level line straight
+      // across the word rather than a per-letter staircase.
+      loaderWrapRef.current?.style.setProperty("--loader-fill", loaderFillTop(p));
     }
 
     function allLoaderChars() {
@@ -1149,6 +1155,10 @@ export default function CrtPowerOn() {
           ref={loaderWrapRef}
           aria-hidden="true"
           className="relative mt-8 h-[1em] w-full font-condensed text-lg leading-none tracking-[0.015em] uppercase opacity-0 sm:text-xl md:text-2xl"
+          // The fill level lives here as one custom property that every
+          // character's fill layer clips against — SSR-safe starting value,
+          // and the only thing the poll writes at runtime.
+          style={{ "--loader-fill": loaderFillTop(0) } as React.CSSProperties}
         >
           {LOADER_PHRASES.map((phrase, phraseIdx) => (
             // Absolutely stacked and centered so a longer phrase can't
@@ -1213,18 +1223,13 @@ export default function CrtPowerOn() {
                       {/* The fill layer carries no stroke of its own, so
                           the accent sits just inside the outline and leaves
                           a chalk rim around it. */}
+                      {/* No ref. The fill level arrives through the
+                          --loader-fill custom property set once on the
+                          wrapper (see setLoaderFill), so every character
+                          picks it up in CSS with no per-element JS write. */}
                       <span
-                        // Indexed assignment, never `.push` — ref callbacks
-                        // re-run on every render (and again with null on
-                        // unmount), so appending would grow the array without
-                        // bound and leave stale nulls in it. Shares the
-                        // character's own index: fills and characters are
-                        // strictly 1:1.
-                        ref={(el) => {
-                          loaderFillRefs.current[i] = el;
-                        }}
                         className="absolute inset-0 block text-accent"
-                        style={{ clipPath: loaderClip(0) }}
+                        style={{ clipPath: "inset(var(--loader-fill) 0 0 0)" }}
                       >
                         {ch}
                       </span>
