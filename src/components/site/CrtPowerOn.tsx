@@ -834,7 +834,14 @@ export default function CrtPowerOn() {
         <div
           ref={loaderLabelRef}
           aria-hidden="true"
-          className="mt-8 opacity-0"
+          // w-full is load-bearing, not decoration. textWrap above is a
+          // `flex flex-col items-center`, so its children shrink to fit
+          // rather than stretching. Without an explicit width here the inner
+          // `w-full` resolves against a collapsed parent, the absolutely
+          // positioned phrase rows inherit that near-zero width, and every
+          // character's overflow-hidden mask squeezes to a sliver — which
+          // renders as the word running vertically down the screen.
+          className="mt-8 w-full opacity-0"
         >
           <div
             ref={loaderFillRef}
