@@ -938,17 +938,36 @@ export default function PitchSection() {
         style={{ clipPath: "circle(0px at 50% 50%)" }}
       >
         <div className="flex h-svh w-full flex-col items-center justify-center gap-10 px-6 py-32 text-center">
-          <p className="font-mono-kicker text-xs uppercase tracking-[0.3em] text-ink/60">[ the pitch ]</p>
-          <h2 className="max-w-3xl font-display text-3xl font-semibold leading-tight text-ink sm:text-5xl md:text-6xl">
+          {/* ── TYPOGRAPHY ON CORAL ──────────────────────────────────
+              Everything here is warm near-black (--color-coral-ink), not
+              white. Chalk on this coral measures ~2.99:1, which fails for
+              body copy at normal size and only scrapes past for the
+              headline; the warm black is ~5.9:1 against the identical
+              coral. The coral itself is untouched on purpose — it is the
+              brand, and darkening it to rescue white type would cost more
+              than it saved.
+
+              This supersedes, but does not contradict, an earlier fix that
+              moved these lines from `text-ink/70` to full white. That fix
+              was right that a WASHED-OUT tone reads flat and grey on solid
+              orange — the mistake was reaching for white instead of a
+              solid dark. The tones below stay high (0.82 and 0.72, not
+              0.6) precisely so the old flatness does not come back. */}
+          <p className="font-mono-kicker text-xs uppercase tracking-[0.3em] text-coral-ink/70">
+            [ the pitch ]
+          </p>
+          {/* "Real accountability." keeps its emphasis, but earns it through
+              weight and a rule rather than through colour — turning it white
+              was exactly what broke the contrast. Weight + underline reads
+              as more deliberate here anyway, where a colour flip on three
+              words reads as a highlighter. */}
+          <h2 className="max-w-3xl font-display text-3xl font-semibold leading-tight text-coral-ink text-balance sm:text-5xl md:text-6xl">
             A 60-day growth sprint. Clear targets.{" "}
-            <span className="text-chalk">Real accountability.</span>
+            <span className="font-bold underline decoration-coral-ink/35 decoration-2 underline-offset-[6px]">
+              Real accountability.
+            </span>
           </h2>
-          {/* Full chalk white, not a translucent ink — this sits directly on
-              the solid accent-orange background (unlike the kicker/h2 above,
-              which already had strong enough weight/size to read fine at
-              lower opacity), and a muted/translucent tone here read flat
-              against the orange, reported directly. */}
-          <p className="max-w-xl text-base leading-relaxed text-chalk sm:text-lg">
+          <p className="max-w-xl text-base leading-relaxed text-coral-ink/85 sm:text-lg">
             We build, launch and improve your connected growth system around agreed goals
             for qualified enquiries, bookings or sales. You&apos;ll know what we&apos;re
             delivering, when it goes live and how we&apos;ll measure progress.
@@ -962,10 +981,11 @@ export default function PitchSection() {
           >
             Book a call
           </a>
-          {/* Full chalk white here too (was text-ink/70) — same lesson as
-              the support paragraph above: a translucent tone reads flat/
-              grey against the solid orange, reported directly. */}
-          <p className="-mt-6 whitespace-nowrap text-[10px] italic text-chalk sm:text-xs">
+          {/* Warm black at 0.72, and no longer italic. The italic was doing
+              the job the colour should have been doing — pushing this line
+              down the hierarchy — and at 10px on coral it cost legibility
+              for an effect that a slightly lower tone gives for free. */}
+          <p className="-mt-6 whitespace-nowrap text-[10px] text-coral-ink/70 sm:text-xs">
             Miss day-60 targets? 30 more days, no service fee.
           </p>
         </div>
