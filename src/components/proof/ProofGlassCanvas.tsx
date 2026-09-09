@@ -352,6 +352,21 @@ function GlassPoster() {
  * get the static GlassPoster instead anyway (see the parent's own
  * branch), this is just the same courtesy for anyone whose OS setting
  * this component can't otherwise see. */
+/** Shared by both rings below. Hoisted to module scope rather than
+ * inlined twice so the two can never drift apart — they are meant to read
+ * as the same material seen at two depths, which only holds if the mask
+ * profile and hue sweep are literally identical. */
+const RING_MASK =
+  "radial-gradient(closest-side, transparent 54%, rgba(0,0,0,0.3) 63%, #000 74%, #000 85%, rgba(0,0,0,0.28) 93%, transparent 100%)";
+
+/** Full-spectrum sweep, opening and closing on the brand accent so the
+ * loop point is seamless and the palette still reads as ïora's rather
+ * than a generic rainbow — the same "scoped exception to the
+ * near-monochrome rule" the real shader documents (see
+ * backgroundSceneMaterial.ts's thematicColor). */
+const RING_CONIC =
+  "conic-gradient(from 0deg, rgba(255,78,50,0.58), rgba(255,150,60,0.5), rgba(255,210,79,0.5), rgba(120,230,160,0.46), rgba(79,214,255,0.52), rgba(120,150,255,0.5), rgba(170,130,255,0.5), rgba(255,95,214,0.52), rgba(244,244,242,0.4), rgba(255,78,50,0.58))";
+
 function MobileGlassBackdrop() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -374,23 +389,70 @@ function MobileGlassBackdrop() {
             rasterizes through a different path and sidesteps a real
             Chromium clip-path compositing bug.
 
-          Only `transform: rotate()` animates, so the ring is rasterized
-          once and then spun as a cached layer — genuinely free per frame,
-          unlike anything that would re-blur or re-generate the gradient.
-          The -webkit- prefix is required for iOS Safari. */}
+          TWO overlapping, off-centre, ELLIPTICAL rings — not one circle.
+          Two earlier attempts were rejected for looking basic: a perfect
+          `rounded-full` ring (a rigid wheel of colour), and then a
+          blob-shaped one that still read as circular. The reason the
+          second failed is worth recording, because it is not obvious:
+          `radial-gradient(closest-side, ...)` used as a mask is a perfect
+          CIRCLE on a square element, so the mask was re-imposing
+          circularity and quietly cancelling out whatever the
+          border-radius did. The fix is that the same `closest-side`
+          gradient becomes an ELLIPSE the moment the element stops being
+          square — so irregularity has to come from the element's own
+          proportions, not just its corner radii.
+
+          Each ring is two counter-rotating layers:
+            outer = the elliptical/blob outline, turning one way
+            inner = the conic hue sweep, turning the other way
+          Rotating an asymmetric outline reads as the form morphing rather
+          than spinning, and the independently-turning colour underneath
+          makes the hues flow THROUGH the shape instead of being welded to
+          it. The second ring is offset, differently proportioned, spun
+          the opposite way and held at lower opacity, so the two silhouettes
+          drift in and out of alignment — that overlap is what produces the
+          irregular, metaball-ish read the real WebGL version gets.
+
+          Every period is deliberately non-harmonic (38/24/30/19s) so the
+          set never settles into a visible loop.
+
+          Seamlessness is the hard constraint here, and this is built for
+          it: every animated layer moves `transform` ONLY. Nothing
+          re-rasterizes per frame — no blur, no animated border-radius
+          (which WOULD repaint each frame and walk straight back into the
+          iOS stall this section was rescued from), no gradient
+          regeneration. Inner layers are oversized to 170% so their own
+          corners can never rotate into view inside the parent's clip. */}
       <div
-        className="absolute left-1/2 top-1/2 h-[112vmin] w-[112vmin] rounded-full motion-reduce:animate-none animate-[proof-ring-spin_40s_linear_infinite]"
+        className="absolute left-[48%] top-[47%] h-[90vmin] w-[118vmin] overflow-hidden motion-reduce:animate-none animate-[proof-ring-shape_38s_linear_infinite]"
         style={{
           transform: "translate(-50%, -50%)",
-          background:
-            "conic-gradient(from 0deg, rgba(255,78,50,0.55), rgba(255,210,79,0.5), rgba(120,230,160,0.45), rgba(79,214,255,0.5), rgba(150,140,255,0.5), rgba(255,95,214,0.5), rgba(244,244,242,0.42), rgba(255,78,50,0.55))",
-          maskImage:
-            "radial-gradient(closest-side, transparent 56%, rgba(0,0,0,0.35) 64%, #000 74%, #000 84%, rgba(0,0,0,0.3) 92%, transparent 100%)",
-          WebkitMaskImage:
-            "radial-gradient(closest-side, transparent 56%, rgba(0,0,0,0.35) 64%, #000 74%, #000 84%, rgba(0,0,0,0.3) 92%, transparent 100%)",
+          borderRadius: "62% 38% 52% 48% / 40% 60% 40% 60%",
+          maskImage: RING_MASK,
+          WebkitMaskImage: RING_MASK,
         }}
         aria-hidden="true"
-      />
+      >
+        <div
+          className="absolute left-1/2 top-1/2 h-[170%] w-[170%] motion-reduce:animate-none animate-[proof-ring-hue_24s_linear_infinite]"
+          style={{ transform: "translate(-50%, -50%)", background: RING_CONIC }}
+        />
+      </div>
+      <div
+        className="absolute left-[56%] top-[56%] h-[104vmin] w-[96vmin] overflow-hidden opacity-60 motion-reduce:animate-none animate-[proof-ring-shape_30s_linear_infinite_reverse]"
+        style={{
+          transform: "translate(-50%, -50%)",
+          borderRadius: "45% 55% 60% 40% / 55% 42% 58% 45%",
+          maskImage: RING_MASK,
+          WebkitMaskImage: RING_MASK,
+        }}
+        aria-hidden="true"
+      >
+        <div
+          className="absolute left-1/2 top-1/2 h-[170%] w-[170%] motion-reduce:animate-none animate-[proof-ring-hue_19s_linear_infinite_reverse]"
+          style={{ transform: "translate(-50%, -50%)", background: RING_CONIC }}
+        />
+      </div>
       <div
         className="absolute left-1/4 top-1/3 h-[100vmin] w-[100vmin] -translate-x-1/2 -translate-y-1/2 rounded-full motion-reduce:animate-none animate-[proof-glass-drift_13s_ease-in-out_infinite]"
         style={{
@@ -407,22 +469,15 @@ function MobileGlassBackdrop() {
         }}
         aria-hidden="true"
       />
-      <div
-        className="absolute left-[15%] top-[75%] h-[85vmin] w-[85vmin] -translate-x-1/2 -translate-y-1/2 rounded-full motion-reduce:animate-none animate-[proof-glass-drift_20s_ease-in-out_infinite_reverse]"
-        style={{
-          background:
-            "radial-gradient(circle, rgba(255,95,214,0.28) 0%, rgba(255,95,214,0.23) 12%, rgba(255,95,214,0.17) 22%, rgba(255,95,214,0.10) 32%, rgba(255,95,214,0.055) 42%, rgba(255,95,214,0.023) 52%, rgba(255,95,214,0.008) 64%, transparent 100%)",
-        }}
-        aria-hidden="true"
-      />
-      <div
-        className="absolute left-[85%] top-[55%] h-[70vmin] w-[70vmin] -translate-x-1/2 -translate-y-1/2 rounded-full motion-reduce:animate-none animate-[proof-glass-drift_15s_ease-in-out_infinite]"
-        style={{
-          background:
-            "radial-gradient(circle, rgba(255,210,79,0.30) 0%, rgba(255,210,79,0.245) 12%, rgba(255,210,79,0.18) 22%, rgba(255,210,79,0.11) 32%, rgba(255,210,79,0.058) 42%, rgba(255,210,79,0.024) 52%, rgba(255,210,79,0.008) 64%, transparent 100%)",
-        }}
-        aria-hidden="true"
-      />
+      {/* Two ambient blobs, down from four. The other two (pink, gold)
+          existed to carry multi-hue colour back when this backdrop was
+          just blobs; the rings above now supply the full spectrum, so
+          keeping all four was both redundant and four more animated
+          layers competing in the one section that has to stay smooth.
+          The surviving accent-orange and cyan pair remain because they
+          still do a job the rings don't: a broad, slow, off-centre wash
+          of ambient light for the cards' own backdrop-filter to pick up,
+          filling the corners the rings never reach. */}
     </div>
   );
 }

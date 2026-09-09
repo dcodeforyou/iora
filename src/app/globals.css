@@ -203,12 +203,35 @@ html.custom-cursor-active * {
    re-raster every frame and walk straight back into the iOS stall this
    whole section was just rescued from. Slow (40s) so it reads as ambient
    drift rather than a spinner. */
-@keyframes proof-ring-spin {
+/* Rotates the blob SILHOUETTE. Because the shape is deliberately
+   asymmetric (see the 8-value border-radius on the element), turning it
+   reads as the outline slowly morphing rather than as a wheel spinning —
+   which is the point: a perfect circle with fixed colour looked basic
+   next to desktop's organic WebGL form. Transform only, so the blob is
+   rasterized once and the rotation is pure compositor work. */
+@keyframes proof-ring-shape {
   from {
     transform: translate(-50%, -50%) rotate(0deg);
   }
   to {
     transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+/* Rotates the COLOUR layer independently, in the opposite direction and
+   on a different period from the shape above. That counter-rotation is
+   what makes the hues appear to flow THROUGH the form instead of being
+   welded to it, and the mismatched periods stop the pair from ever
+   settling into an obvious repeating loop. Also transform-only. */
+   The translate is repeated in both keyframes on purpose: `transform` is
+   a single property, so a keyframe that animated rotate() alone would
+   REPLACE the centering translate and knock the layer off-centre. */
+@keyframes proof-ring-hue {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(-360deg);
   }
 }
 
