@@ -67,7 +67,11 @@ export interface Project {
 export const PROJECTS: Project[] = [
   {
     slug: "ovodont-dental-clinic-website",
-    title: "A Dental Site That Doesn't Feel Clinical",
+    // Outcome-first headline, per the copy framework: name the business
+    // movement, not the deliverable. The previous title ("A Dental Site
+    // That Doesn't Feel Clinical") described how the site looked — exactly
+    // the generic portfolio language the framework rules out.
+    title: "Built Around One Outcome: More Patients In The Chair",
     // Client name read directly off a real patient bib in the source
     // photography ("...VODONT DENTAL CLINIC") — spelling not otherwise
     // confirmed anywhere in the codebase. Flag for the studio to confirm
@@ -85,18 +89,28 @@ export const PROJECTS: Project[] = [
     // stated positioning ("Everything we do is built around calm,
     // precision, and care you can feel from the first visit") and its
     // actual service list, not invented.
+    // Rewritten outcome-first. The previous version described the visual
+    // solution; this leads with the documented business result and treats
+    // the craft as how it was achieved, not as the achievement. The
+    // "100 patients per day" figure comes from the framework doc, which
+    // records it as a real result — no other number here is invented.
     results:
-      "A calm, precision-first identity for a practice built around AI-assisted diagnostics, laser dentistry, and in-house 3D printing — replacing the usual clinical-website coldness with a 3D glass-tooth centerpiece, a water-ripple background, and real patient testimonials woven straight into the scroll.",
+      "**100 patients per day achieved.** Not a digital brochure — a trust-and-conversion system that moves prospective patients from uncertainty to consultation. The website became part of the clinic's patient-acquisition system rather than simply its online presence, proving ïora's **Conversion & Digital Experience ecosystem** at its clearest: turn existing attention into action.",
     // Everything below is read directly from HomeExperience.tsx's own
     // ~2,300-line GSAP/ScrollTrigger timeline — the SERVICES/TECHNOLOGIES/
     // RESULTS/TESTIMONIALS arrays, the named animation phases (spiral,
     // sweep, multiply, drop), and the smile-bowl physics system
     // (smileBowlPhysics.ts) are all real, not summarized from memory.
     challenge: {
-      heading: "A PERSISTENT OBJECT, NOT A STOCK PHOTO OF A SMILE",
+      // Reframed from a craft problem ("a persistent object, not a stock
+      // photo") to the commercial one underneath it, per the framework's
+      // six-part narrative: what were customers failing to do, and why did
+      // that matter to the business.
+      heading: "DENTAL DECISIONS BEGIN WITH ANXIETY",
       paragraphs: [
-        "Most dental sites solve trust the same way: a stock photo of a smiling patient, a grid of services, a contact form at the bottom. Ovodont's brief asked for the opposite — a practice built around AI-assisted diagnostics, laser dentistry, and in-house 3D printing needed a site with the same precision as the equipment in the operatory.",
-        "The answer was a single, persistent 3D object — a real-time WebGL glass tooth — that never leaves the frame for the entire visit. It shrinks, spins, swerves, and eventually multiplies across nine full scroll chapters (hero, details, four services, four technologies, results, six testimonials, contact), carrying the whole page as one continuous performance instead of nine sections stitched together.",
+        "Someone looking for dental treatment is rarely browsing casually. Something hurts. They dislike how something looks. They are worried about price, pain, or what treatment they may need. Before they give any clinic their time or money, they are asking one thing: **\"Can I trust these people?\"**",
+        "A conventional clinic website answers who the clinic is, lists treatments, and provides a phone number. That is not enough. The site needed to answer the patient's real question — **\"Why should I take the next step here?\"** — which made this a conversion problem long before it was a design one.",
+        "That reframing is what put it inside the **Conversion & Digital Experience ecosystem**: the job was not to look modern, it was to turn existing demand into booked consultations.",
       ],
     },
     approach: {
@@ -144,12 +158,16 @@ export const PROJECTS: Project[] = [
     ],
     impact: [
       {
-        heading: "One persistent hero, zero throwaway sections",
-        body: "The same 3D object anchors all nine chapters, so the site reads as one continuous performance rather than nine templates stitched end to end.",
+        heading: "100 patients per day achieved",
+        body: "The documented business result, and the one the page leads with. Success stopped being measured as **\"how good does the clinic website look?\"** and became **\"how effectively does it turn demand into patients?\"**",
       },
       {
         heading: "Real physics, not motion-graphics tricks",
         body: "The falling stat-teeth and the testimonial photo burst are both driven by actual simulation, not hand-tuned keyframes — which is why they never play back identically twice.",
+      },
+      {
+        heading: "The conversion layer under every other channel",
+        body: "More qualified patients reaching consultation improves the economics of every source already generating awareness — search, social, referrals, campaigns, offline reputation. The site became the layer connecting all of them, which is how one **ecosystem** strengthens the others: **attention → decision → action → transaction → retention**.",
       },
       {
         heading: "A clinic that looks like its own equipment",
@@ -336,7 +354,10 @@ PROJECTS.push(
   },
   {
     slug: "titli-gifting-ecommerce",
-    title: "Five Questions Before Every Gift",
+    // Outcome-first headline from the framework's own locked direction for
+    // this project. The previous title named the mechanic (five questions);
+    // this names the customer movement the mechanic exists to create.
+    title: "Turning \"I Need A Gift\" Into \"I Know Exactly What To Buy\"",
     // Real, live client site (shopattitli.in) built for a friend's
     // business, consent confirmed directly by the studio before this was
     // written up. Every specific below — the five-step guide's exact
@@ -348,13 +369,20 @@ PROJECTS.push(
     cardImage: "/work/titli/hero.png",
     deliverables: ["Website Design", "E-Commerce Development", "Brand Identity"],
     involvement: ["UI/UX Design", "Front-end Development", "E-Commerce Development", "Brand Identity"],
+    // Leads with the commercial job rather than the feature list. The
+    // features are still here, but as evidence for the argument instead of
+    // as the argument itself.
     results:
-      "A full gifting storefront — Rakhi combos, jewelry, hair accessories, keychains, gift boxes — built around a five-step 'Build a Box' mood guide that sits in the primary nav with equal weight to the shop itself, plus a loyalty program, a real customer-moments gallery paired with shoppable product shots, and a collaboration form letting other small brands apply to sell through TITLI's own curated hampers.",
+      "A gifting site reorganised around **the decision itself** — occasion, recipient, budget, level of customisation — so browsing becomes a guided path toward purchase rather than an endless product catalogue. Curated routes, a five-step 'Build a Box' guide sitting in the primary nav with equal weight to the shop, and separate wedding and corporate enquiry pathways turn one storefront into a sales system. Proof of the **Conversion & Digital Experience ecosystem**: **reduce \"what should I buy?\" before asking \"would you like to checkout?\"**",
     challenge: {
-      heading: "A GIFT SHOP THAT ASKS BEFORE IT SELLS",
+      // Framework's own framing for this project: gifting starts with
+      // emotion, ecommerce starts with inventory. States the commercial
+      // problem before any design decision appears.
+      heading: "GIFTING STARTS WITH EMOTION. ECOMMERCE STARTS WITH INVENTORY.",
       paragraphs: [
-        "Most small-brand gifting sites default to the same shape as any other online store: a nav bar of categories, a grid of products, a checkout button. TITLI's brief needed the opposite — a Rakhi-and-jewelry gifting shop that still feels personal even though nobody on the other end knows who the giver is actually shopping for.",
-        "The build leads with a question, not a catalog. A five-step mood-and-occasion guide — Build a Box — sits in the primary nav with the same weight as \"Shop Gifts,\" not tucked away as a secondary tool.",
+        "Someone rarely arrives thinking \"I need SKU 382.\" They arrive thinking: it's her birthday, I need something for my team, I don't know what to give them, I want this to feel personal.",
+        "A conventional ecommerce structure makes the customer translate those feelings into product categories themselves. That creates friction at the exact moment the brand should be making the decision easier. So the job wasn't to organise products — **it was to organise intent**.",
+        "The build leads with a question, not a catalog. A five-step mood-and-occasion guide — Build a Box — sits in the primary nav with the same weight as \"Shop Gifts,\" not tucked away as a secondary tool. **Desire creates the click. Confidence completes the order.**",
       ],
     },
     approach: {

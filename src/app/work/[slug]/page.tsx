@@ -4,6 +4,7 @@ import Link from "next/link";
 import Nav from "@/components/site/Nav";
 import Footer from "@/components/site/Footer";
 import ScrollReveal from "@/components/work/ScrollReveal";
+import Emphasis from "@/components/work/Emphasis";
 import { PROJECTS, getProject } from "@/lib/work/projects";
 
 export function generateStaticParams() {
@@ -80,7 +81,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
 
             <div className="flex flex-col gap-2">
               <p className="font-mono-kicker text-[11px] uppercase tracking-[0.25em] text-chalk-muted">Results</p>
-              <p className="font-body text-base leading-relaxed text-chalk-muted">{project.results}</p>
+              <p className="font-body text-base leading-relaxed text-chalk-muted">
+                <Emphasis text={project.results} />
+              </p>
             </div>
           </ScrollReveal>
         </div>
@@ -99,7 +102,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
                 </h2>
                 {project.challenge.paragraphs.map((p, i) => (
                   <p key={i} className="font-body text-base leading-relaxed text-chalk-muted sm:text-lg">
-                    {p}
+                    <Emphasis text={p} />
                   </p>
                 ))}
               </ScrollReveal>
@@ -111,7 +114,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
                 </h2>
                 {project.approach.paragraphs.map((p, i) => (
                   <p key={i} className="font-body text-base leading-relaxed text-chalk-muted sm:text-lg">
-                    {p}
+                    <Emphasis text={p} />
                   </p>
                 ))}
                 {project.approach.bullets && (
@@ -185,7 +188,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
                 <h2 className="font-display text-2xl font-semibold leading-[1.15] text-chalk sm:text-3xl">{block.heading}</h2>
                 {block.paragraphs.map((p, j) => (
                   <p key={j} className="font-body text-base leading-relaxed text-chalk-muted sm:text-lg">
-                    {p}
+                    <Emphasis text={p} />
                   </p>
                 ))}
                 {block.bullets && (
@@ -213,7 +216,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
               {project.impact.map((point, i) => (
                 <div key={i} className="flex flex-col gap-2">
                   <h3 className="font-display text-lg font-medium leading-snug text-chalk">{point.heading}</h3>
-                  <p className="font-body text-sm leading-relaxed text-chalk-muted">{point.body}</p>
+                  <p className="font-body text-sm leading-relaxed text-chalk-muted">
+                    <Emphasis text={point.body} />
+                  </p>
                 </div>
               ))}
             </div>
