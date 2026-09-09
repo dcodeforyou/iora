@@ -212,7 +212,11 @@ export const PROJECTS: Project[] = [
 PROJECTS.push(
   {
     slug: "artisan-coffee-roastery-ecommerce",
-    title: "Where Fire Meets Obsession",
+    // Outcome-first, per the framework. The previous title was the hero
+    // copy line — evocative, but it named the brand's mood rather than the
+    // commercial movement. For a roastery the business is repeat purchase,
+    // so the headline names that.
+    title: "Turning A First Bag Into A Second One",
     // Real line pulled directly from the project's own hero copy.
     client: "Independent Coffee Roastery",
     tags: ["Website", "E-Commerce", "Brand"],
@@ -222,17 +226,24 @@ PROJECTS.push(
     // Grounded in the project's own real copy and actual page structure
     // (shop, roast, journal, cart, get-in-touch) — a full storefront, not
     // a single-page brochure.
+    // Leads with the commercial job. The storefront details stay, but as
+    // evidence for the argument rather than as the argument.
     results:
-      "A full storefront for a single-origin coffee roastery — shop, roast-profile journal, and a roaster's-story video, built around one real line of copy: 'Where fire meets obsession.' Every product ships with a brew guide matched to that specific bag's character, not a generic care card.",
+      "Specialty coffee only works as a business if the second bag gets ordered — and the usual reason it isn't is that the first one was chosen blind. The storefront is built to remove that guess: named origins instead of an unbacked \"ethically sourced\" badge, roast profiles a first-time buyer can actually read themselves into, and **a brew guide matched to each specific bag** rather than one generic care card. Primarily **Conversion & Digital Experience**, deliberately built to feed the **Customer Growth & Retention ecosystem**: **the first order is the acquisition; the second is the business.**",
     // Read directly from app/page.js: the STATS array, the Marius Veil
     // quote, the MARQUEE_ITEMS list, and the actual featured-product
     // names (Ethiopia Yirgacheffe, FORMA Espresso Blend, Hario V60
     // Ceramic) are all real content pulled from the source, not invented.
     challenge: {
-      heading: "A STOREFRONT BUILT AROUND ONE LINE OF COPY",
+      // Reframed from a craft problem (one line of copy as the filter) to
+      // the commercial one underneath it, per the framework's six-part
+      // narrative: what was the customer failing to do, and why did that
+      // matter to the business.
+      heading: "NOBODY BUYS THEIR SECOND BAG FROM A ROASTERY THAT GOT THE FIRST ONE WRONG",
       paragraphs: [
-        "Coffee e-commerce defaults to a predictable shape: a product grid, a subscribe prompt, a paragraph about beans that could belong to any roastery. The brief's own hero line — \"Where fire meets obsession\" — became the filter every other decision on the site had to pass through.",
-        "Sourcing became the actual story instead of a footnote: Ethiopia, Colombia, and Kenya are named directly on the page as the roastery's traceable, ethical micro-lot origins, not folded into an unbacked \"ethically sourced\" badge.",
+        "A first-time specialty buyer is not comparing roasteries. They are trying not to waste money on something they will not enjoy. Faced with a grid of unfamiliar names and tasting notes written for people who already know what they mean, the safe move is to close the tab — or to guess once, get it wrong, and never come back.",
+        "Coffee ecommerce usually answers this with volume: a bigger product grid, a subscribe prompt before any trust exists, a paragraph about beans that could belong to any roastery. That sells the catalogue rather than **helping someone choose**, and choosing badly is precisely what kills the repeat order.",
+        "So the job was to make the coffee legible before asking for the purchase. Sourcing became the actual story rather than a footnote — Ethiopia, Colombia, and Kenya named directly on the page as traceable micro-lot origins, not folded into an unbacked \"ethically sourced\" badge — and the brief's own hero line, \"Where fire meets obsession,\" became the filter every other decision had to pass through.",
       ],
     },
     approach: {
@@ -267,7 +278,7 @@ PROJECTS.push(
       },
       {
         heading: "A brew guide per bag",
-        body: "Every product ships with guidance matched to that specific coffee's own character, not one generic care card reused across the whole catalog.",
+        body: "Every product ships with guidance matched to that specific coffee's own character, not one generic care card reused across the whole catalog — the cheapest way to make a first bag taste the way it was meant to, which is what **decides whether a second one gets ordered**.",
       },
       {
         heading: "The founder's own words carry the philosophy section",
