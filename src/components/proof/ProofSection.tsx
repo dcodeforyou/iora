@@ -878,7 +878,16 @@ export default function ProofSection() {
                 // gradients (see MobileGlassBackdrop): there's no
                 // high-frequency detail left for the extra radius to
                 // remove, so the frosted result reads the same.
-                className="liquid-glass-card group relative block h-[95vh] w-full max-w-md overflow-hidden backdrop-blur-lg [background:linear-gradient(to_bottom,color-mix(in_srgb,var(--color-chalk)_10%,transparent),color-mix(in_srgb,var(--color-chalk)_3%,transparent))] shadow-[inset_0_1px_1px_rgba(244,244,242,0.3),inset_0_0_50px_rgba(244,244,242,0.05)] sm:bg-none sm:shadow-none sm:backdrop-blur-none"
+                // Mobile card surface is now a near-opaque raised panel
+                // rather than a mostly-transparent pane: 78% dark ground, a
+                // restrained hairline border, and a layered drop shadow to
+                // seat it, instead of leaning entirely on blur. The old
+                // 10%/3% chalk gradient let the light trail through at the
+                // same visual depth as the copy sitting on top of it, so
+                // atmosphere and information competed and the type lost.
+                // Desktop (sm:) still hands the card to the WebGL glass —
+                // see ProofGlassCanvas — and is untouched here.
+                className="liquid-glass-card group relative block h-[95vh] w-full max-w-md overflow-hidden border border-chalk/15 bg-[rgba(18,19,22,0.78)] backdrop-blur-lg shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_24px_80px_rgba(0,0,0,0.34)] sm:border-0 sm:bg-none sm:shadow-none sm:backdrop-blur-none"
                 onMouseEnter={() => handleGlimpseEnter(i)}
                 onMouseLeave={() => handleGlimpseLeave(i)}
               >
@@ -955,13 +964,25 @@ export default function ProofSection() {
                       it rather than competing with it. Description: back
                       to the original text-sm — the 16-18px pass read as too
                       big for this card's own text block. */}
-                  <span className="font-mono-kicker text-[13px] uppercase tracking-[0.1em] text-chalk">
+                  {/* CONTRAST ORDER REVERSED from the note above, which had
+                      the numbered label brightest and the benefit line
+                      "greyish" so as not to compete with it. On the busy
+                      light-trail background that made the one sentence
+                      carrying the actual value — "Get noticed by the people
+                      who matter." — the faintest thing on the card, so the
+                      section read as atmosphere with captions attached.
+                      The identifier is still first in READING order and
+                      keeps its mono/tracking treatment, which is what makes
+                      it scannable; it no longer also needs to be the
+                      brightest. Order now: eyebrow muted, benefit line
+                      strongest, description just under it. */}
+                  <span className="font-mono-kicker text-[13px] uppercase tracking-[0.1em] text-chalk-muted">
                     0{i + 1} / {service.label}
                   </span>
-                  <h3 className="font-display text-lg font-medium leading-tight text-chalk-muted [text-shadow:0_1px_3px_rgba(11,12,16,0.6),0_4px_16px_rgba(11,12,16,0.5)] sm:text-xl">
+                  <h3 className="font-display text-lg font-semibold leading-tight text-chalk [text-shadow:0_1px_3px_rgba(11,12,16,0.6),0_4px_16px_rgba(11,12,16,0.5)] sm:text-xl">
                     {service.title}
                   </h3>
-                  <p className="text-sm leading-relaxed text-chalk [text-shadow:0_1px_3px_rgba(11,12,16,0.6),0_4px_16px_rgba(11,12,16,0.5)]">
+                  <p className="text-sm leading-relaxed text-card-body [text-shadow:0_1px_3px_rgba(11,12,16,0.6),0_4px_16px_rgba(11,12,16,0.5)]">
                     {service.desc}
                   </p>
                 </div>
