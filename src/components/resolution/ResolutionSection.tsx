@@ -67,20 +67,40 @@ export default function ResolutionSection() {
   // display, and vice versa. Both elements stay in the DOM either way
   // (they're CSS-hidden, not unmounted), so this is purely about which
   // one is told to fetch.
+  //
+  // Also force `muted` as a real DOM PROPERTY, not just the JSX attribute.
+  // Both source files now carry a silent audio track (see the WebKit note
+  // below), so `muted` stopped being cosmetic and became load-bearing
+  // twice over: without it these would be audible, and iOS refuses to
+  // autoplay anything unmuted. React's `muted` prop is known not to
+  // reliably reflect onto the property in every path, and the failure
+  // would be both noisy and silent-breaking, so it's asserted directly
+  // rather than trusted.
   useEffect(() => {
     const isMobile = window.innerWidth < HERO_VIDEO_BREAKPOINT;
-    if (isMobile) mobileVideoRef.current?.load();
-    else videoRef.current?.load();
+    const target = isMobile ? mobileVideoRef.current : videoRef.current;
+    if (!target) return;
+    target.muted = true;
+    target.defaultMuted = true;
+    target.load();
   }, []);
 
   // WebKit auto-pauses "video-only background media ... to save power"
-  // (its own wording, seen verbatim in a real AbortError during testing).
-  // BOTH clips here are genuinely video-only — neither file has an audio
-  // track at all (confirmed with ffprobe) — which is exactly the category
-  // that heuristic targets, and newer iOS is markedly more aggressive
-  // about it: reported as this section's video not playing on an iPhone
-  // 16 Pro Max while the same build played fine on an iPhone 12 Pro and
-  // an Android device.
+  // (its own wording, seen verbatim in a real AbortError during testing),
+  // and newer iOS is markedly more aggressive about it: reported as this
+  // section's video not playing on an iPhone 16 Pro Max while the same
+  // build played fine on an iPhone 12 Pro and an Android device, and
+  // later confirmed to be falling through to the poster there — i.e. the
+  // file loads fine and playback is being refused, not failing.
+  //
+  // Both clips originally had NO audio track whatsoever (confirmed with
+  // ffprobe), which is precisely the "video-only" category that heuristic
+  // targets. They have each since been given a silent AAC track via
+  // ffmpeg (video stream copied, so no re-encode and no quality loss;
+  // file sizes unchanged), which should take them out of that category
+  // altogether. The listener below stays regardless as defence in depth —
+  // it costs nothing and still covers any other source of an unrequested
+  // pause.
   //
   // The failure mode is specifically a ONE-SHOT play() with no recovery:
   // the observers below call play() once on entry, WebKit then pauses the
