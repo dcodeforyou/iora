@@ -199,8 +199,46 @@ export function initHeroVideo(): HTMLVideoElement {
   // Set after the listeners/attributes above, then load() — src assignment
   // is what actually kicks off the network request, so everything that
   // needs to observe "did it finish" has to be wired first.
-  video.src = key === "mobile" && isSlowConnection() ? MOBILE_LITE_SOURCE : SOURCES[key];
+  const wantsLiteUpFront = key === "mobile" && isSlowConnection();
+  video.src = wantsLiteUpFront ? MOBILE_LITE_SOURCE : SOURCES[key];
   video.load();
+
+  // MEASURED fallback to the lite cut, because the declared one above can
+  // never fire on the devices that need it.
+  //
+  // isSlowConnection() reads navigator.connection, which iOS Safari does not
+  // implement — the on-device diagnostic prints "net n/a" there. So on every
+  // iPhone, no matter how bad the link, this element always requested the
+  // full 4.1MB mobile cut and the 1.6MB lite cut was unreachable. The lite
+  // file has existed the whole time; nothing could select it.
+  //
+  // The trigger here is the video's own progress instead of a browser
+  // estimate: if nothing at all has arrived after a few seconds, the source
+  // is too heavy for this connection, whatever the connection claims to be.
+  // Captured on an iPhone 16 Pro Max on cellular — iora-mobile.mp4 sat at
+  // readyState 0, networkState 2 (still loading), 0 bytes buffered, no
+  // error, past the loader's whole 12s budget, while another video on the
+  // same page had buffered fine. That is a file-size problem, not a broken
+  // request, and it ends with the loader timing out and the hero showing
+  // nothing.
+  //
+  // Deliberately conservative: only for the mobile cut, only when literally
+  // zero bytes have landed, and only once. Any sign of progress cancels it,
+  // so a merely slow-but-working connection is left alone to finish the
+  // better-looking file rather than being downgraded mid-download.
+  if (key === "mobile" && !wantsLiteUpFront) {
+    const NO_PROGRESS_MS = 3500;
+    const watchdog = window.setTimeout(() => {
+      if (video.readyState === 0 && video.buffered.length === 0) {
+        video.src = MOBILE_LITE_SOURCE;
+        video.load();
+      }
+    }, NO_PROGRESS_MS);
+    const cancel = () => window.clearTimeout(watchdog);
+    video.addEventListener("progress", cancel, { once: true });
+    video.addEventListener("loadeddata", cancel, { once: true });
+    video.addEventListener("canplaythrough", cancel, { once: true });
+  }
 
   heroVideoState.el = video;
   heroVideoState.key = key;

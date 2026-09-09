@@ -861,11 +861,11 @@ export default function CrtPowerOn() {
                 {[...phrase].map((ch, charIdx) => {
                   const i = ch === " " ? -1 : loaderIndex++;
                   return ch === " " ? (
-                    <span key={charIdx} className="w-[0.22em]" />
+                    <span key={charIdx} className="w-[0.22em] shrink-0" />
                   ) : (
                     // The mask: overflow-hidden on a box exactly one line
                     // tall is what turns a plain Y translation into a wipe.
-                    <span key={charIdx} className="inline-block overflow-hidden">
+                    <span key={charIdx} className="inline-block shrink-0 overflow-hidden">
                       <span
                         ref={(el) => {
                           loaderCharRefs.current[i] = el;
