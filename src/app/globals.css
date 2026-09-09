@@ -218,23 +218,6 @@ html.custom-cursor-active * {
   }
 }
 
-/* Rotates the COLOUR layer independently, in the opposite direction and
-   on a different period from the shape above. That counter-rotation is
-   what makes the hues appear to flow THROUGH the form instead of being
-   welded to it, and the mismatched periods stop the pair from ever
-   settling into an obvious repeating loop. Also transform-only. */
-   The translate is repeated in both keyframes on purpose: `transform` is
-   a single property, so a keyframe that animated rotate() alone would
-   REPLACE the centering translate and knock the layer off-centre. */
-@keyframes proof-ring-hue {
-  from {
-    transform: translate(-50%, -50%) rotate(0deg);
-  }
-  to {
-    transform: translate(-50%, -50%) rotate(-360deg);
-  }
-}
-
 @keyframes proof-glass-drift {
   0%,
   100% {

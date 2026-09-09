@@ -352,107 +352,62 @@ function GlassPoster() {
  * get the static GlassPoster instead anyway (see the parent's own
  * branch), this is just the same courtesy for anyone whose OS setting
  * this component can't otherwise see. */
-/** Shared by both rings below. Hoisted to module scope rather than
- * inlined twice so the two can never drift apart — they are meant to read
- * as the same material seen at two depths, which only holds if the mask
- * profile and hue sweep are literally identical. */
-const RING_MASK =
-  "radial-gradient(closest-side, transparent 54%, rgba(0,0,0,0.3) 63%, #000 74%, #000 85%, rgba(0,0,0,0.28) 93%, transparent 100%)";
-
-/** Full-spectrum sweep, opening and closing on the brand accent so the
- * loop point is seamless and the palette still reads as ïora's rather
- * than a generic rainbow — the same "scoped exception to the
- * near-monochrome rule" the real shader documents (see
- * backgroundSceneMaterial.ts's thematicColor). */
-const RING_CONIC =
-  "conic-gradient(from 0deg, rgba(255,78,50,0.58), rgba(255,150,60,0.5), rgba(255,210,79,0.5), rgba(120,230,160,0.46), rgba(79,214,255,0.52), rgba(120,150,255,0.5), rgba(170,130,255,0.5), rgba(255,95,214,0.52), rgba(244,244,242,0.4), rgba(255,78,50,0.58))";
+/** The Proof bubble, BAKED. This is a real frame of the very same WebGL
+ * shader desktop runs (backgroundSceneMaterial.ts), captured from it and
+ * saved as a flat 36KB image — not a CSS approximation of it.
+ *
+ * Two CSS attempts at this form were rejected for not matching: a perfect
+ * conic ring, then two overlapping elliptical rings, which was worse
+ * still because the layering read as clutter rather than one object. The
+ * shape the shader actually produces is an irregular, self-intersecting
+ * metaball contour, and CSS gradients have no honest way to express that.
+ * Baking sidesteps the whole argument: the form is now pixel-identical to
+ * desktop by construction, because it IS desktop's, and it costs a single
+ * cached image decode instead of a WebGL context, a shader compile and
+ * per-frame GPU work.
+ *
+ * Composited with `mix-blend-mode: screen`, which is why the texture was
+ * captured on pure black: under screen, black contributes nothing, so the
+ * image's square edges are genuinely invisible and only the glow shows.
+ * That is what allows ONE element to rotate freely without ever revealing
+ * a boundary — no mask, no second layer, nothing to line up. */
+const BUBBLE_TEXTURE = "/proof-bubble.jpg";
 
 function MobileGlassBackdrop() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      {/* The circular rainbow RING — desktop's most recognisable feature in
-          this section, and the thing mobile visibly lost when the WebGL
-          canvas was removed. Rebuilt with no WebGL and, critically, no
-          `filter: blur()`:
+      {/* ONE element. The desktop bubble itself, as a baked image (see
+          BUBBLE_TEXTURE above), slowly rotating — no second ring, no
+          inner colour layer, nothing composited on top of anything else.
+          Layering was tried and explicitly rejected: two overlapping
+          rings read as clutter rather than as one object.
 
-          - a `conic-gradient` supplies the hue sweep around the circle,
-            the same full-spectrum move the real shader makes (see
-            backgroundSceneMaterial.ts's thematicColor), including the
-            brand accent so it stays on-palette rather than arbitrary;
-          - a radial-gradient `mask-image` carves that disc into an
-            annulus, with the SOFT EDGES coming from the mask's own stops
-            rather than a blur filter — the identical technique used for
-            the glow blobs below, and the reason this can exist at all on
-            a device that stalled on large blurred layers;
-          - `mask-image` specifically (not `clip-path`) also follows the
-            precedent AttentionSection documents for its own overlay: it
-            rasterizes through a different path and sidesteps a real
-            Chromium clip-path compositing bug.
+          Rotation is the only animation, and `transform` is the only
+          property it touches, so the image is decoded and rasterized once
+          and every frame after that is pure compositor work. No blur, no
+          mask, no gradient regeneration, no WebGL — the whole reason this
+          approach was chosen over re-adding the real shader is that it
+          keeps the section's scrolling untouched on the hardware that
+          used to stall here.
 
-          TWO overlapping, off-centre, ELLIPTICAL rings — not one circle.
-          Two earlier attempts were rejected for looking basic: a perfect
-          `rounded-full` ring (a rigid wheel of colour), and then a
-          blob-shaped one that still read as circular. The reason the
-          second failed is worth recording, because it is not obvious:
-          `radial-gradient(closest-side, ...)` used as a mask is a perfect
-          CIRCLE on a square element, so the mask was re-imposing
-          circularity and quietly cancelling out whatever the
-          border-radius did. The fix is that the same `closest-side`
-          gradient becomes an ELLIPSE the moment the element stops being
-          square — so irregularity has to come from the element's own
-          proportions, not just its corner radii.
-
-          Each ring is two counter-rotating layers:
-            outer = the elliptical/blob outline, turning one way
-            inner = the conic hue sweep, turning the other way
-          Rotating an asymmetric outline reads as the form morphing rather
-          than spinning, and the independently-turning colour underneath
-          makes the hues flow THROUGH the shape instead of being welded to
-          it. The second ring is offset, differently proportioned, spun
-          the opposite way and held at lower opacity, so the two silhouettes
-          drift in and out of alignment — that overlap is what produces the
-          irregular, metaball-ish read the real WebGL version gets.
-
-          Every period is deliberately non-harmonic (38/24/30/19s) so the
-          set never settles into a visible loop.
-
-          Seamlessness is the hard constraint here, and this is built for
-          it: every animated layer moves `transform` ONLY. Nothing
-          re-rasterizes per frame — no blur, no animated border-radius
-          (which WOULD repaint each frame and walk straight back into the
-          iOS stall this section was rescued from), no gradient
-          regeneration. Inner layers are oversized to 170% so their own
-          corners can never rotate into view inside the parent's clip. */}
+          Sized in vmax rather than vmin so it always spans the LONG side
+          of the viewport: a square image rotating inside a tall phone
+          frame has to overshoot the height, or its corners sweep through
+          the visible area during the turn. `screen` blending means the
+          overshoot costs nothing visually, since everything outside the
+          glow is black and therefore invisible. */}
       <div
-        className="absolute left-[48%] top-[47%] h-[90vmin] w-[118vmin] overflow-hidden motion-reduce:animate-none animate-[proof-ring-shape_38s_linear_infinite]"
+        className="absolute left-1/2 top-1/2 h-[125vmax] w-[125vmax] motion-reduce:animate-none animate-[proof-ring-shape_46s_linear_infinite]"
         style={{
           transform: "translate(-50%, -50%)",
-          borderRadius: "62% 38% 52% 48% / 40% 60% 40% 60%",
-          maskImage: RING_MASK,
-          WebkitMaskImage: RING_MASK,
+          backgroundImage: `url(${BUBBLE_TEXTURE})`,
+          backgroundSize: "contain",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+          mixBlendMode: "screen",
         }}
         aria-hidden="true"
-      >
-        <div
-          className="absolute left-1/2 top-1/2 h-[170%] w-[170%] motion-reduce:animate-none animate-[proof-ring-hue_24s_linear_infinite]"
-          style={{ transform: "translate(-50%, -50%)", background: RING_CONIC }}
-        />
-      </div>
-      <div
-        className="absolute left-[56%] top-[56%] h-[104vmin] w-[96vmin] overflow-hidden opacity-60 motion-reduce:animate-none animate-[proof-ring-shape_30s_linear_infinite_reverse]"
-        style={{
-          transform: "translate(-50%, -50%)",
-          borderRadius: "45% 55% 60% 40% / 55% 42% 58% 45%",
-          maskImage: RING_MASK,
-          WebkitMaskImage: RING_MASK,
-        }}
-        aria-hidden="true"
-      >
-        <div
-          className="absolute left-1/2 top-1/2 h-[170%] w-[170%] motion-reduce:animate-none animate-[proof-ring-hue_19s_linear_infinite_reverse]"
-          style={{ transform: "translate(-50%, -50%)", background: RING_CONIC }}
-        />
-      </div>
+      />
       <div
         className="absolute left-1/4 top-1/3 h-[100vmin] w-[100vmin] -translate-x-1/2 -translate-y-1/2 rounded-full motion-reduce:animate-none animate-[proof-glass-drift_13s_ease-in-out_infinite]"
         style={{
