@@ -106,50 +106,32 @@ const LOADER_OUT_STAGGER_SPAN = 0.08;
 // for "show the words longer"; the transition constants above are not, and
 // lengthening those makes readability worse rather than better.
 //
-// Paired with LOADER_FILL_EASING, which sets how long the loader survives
-// at all — a long dwell is meaningless if the loader is dismissed before
-// the dwell finishes, which is exactly the trap the earlier passes fell
-// into. Change one and check the other.
+// Note this is an upper bound on what anyone actually sees, not a promise.
+// The loader lives exactly as long as the assets take to become ready, so
+// on a fast connection a phrase may only get part of its dwell before the
+// whole thing hands over. That is the correct trade: holding the boot
+// screen open just to finish showing a word costs every visitor real time.
 const LOADER_PHRASE_HOLD = 2.2;
 
 // How hard the displayed fill chases the real measured progress, per poll
 // tick. See the poll loop for why this exists at all — short version, the
 // underlying signal is genuinely step-shaped and this is what turns it
 // back into something that reads as filling.
-// Also, in practice, what sets the loader's MINIMUM lifetime.
+// PURELY cosmetic, and deliberately kept that way. An earlier version
+// slowed this right down so the fill would take ~5s to close, because the
+// loader was dismissed the moment the fill hit 100% and slowing the fill
+// was therefore a way to keep the words on screen longer. That coupling is
+// gone — release now happens on the real measured progress (see the poll)
+// — and it should not come back: making a loader outlive its own job
+// delays the hero video and everything after it for every visitor.
 //
-// This matters more than it looks. The loader is dismissed the moment the
-// displayed fill reaches 100%, so how fast the fill climbs is how soon the
-// whole thing disappears — and on a warm cache the real progress is
-// effectively 1 from the first tick, so a fast chase meant the loader
-// appeared and left inside about a second and a half. That is the actual
-// reason the words read as barely-there regardless of how long the dwell
-// was set: the dwell was never the binding constraint, the loader's own
-// lifetime was. It was being cut off mid-word, not shown briefly.
-//
-// At 0.08 per 40ms tick the fill takes ~2.5s to close from a standing
-// start, which is almost exactly one full phrase cycle (0.34s to form +
-// 2.2s dwell). So the first phrase now always gets its complete dwell
-// before the button can appear, and the fill is climbing the entire time
-// rather than finishing early and sitting full. Still honest — the
-// displayed value can only ever lag the measured one, never overstate it.
-const LOADER_FILL_EASING = 0.042;
+// Back at 0.14 the fill closes in ~1.4s from a standing start, fast enough
+// to look like it is keeping up with a quick load rather than crawling
+// while the button is already waiting. Still honest — the displayed value
+// can only ever lag the measured one, never overstate it.
+const LOADER_FILL_EASING = 0.14;
 const LOADER_POLL_MS = 40;
 
-// The loader stays up for at least this long, even when the video is
-// already cached and the real progress is 1 from the first tick.
-//
-// This is the thing that was actually being asked for across several
-// rounds of tuning the phrase timings, and it could never have come from
-// those timings: the loader is dismissed as soon as the fill closes, so its
-// own lifetime — not the dwell — is what caps how long any word is on
-// screen. Previously that was ~2.5s, which is one phrase and nothing else.
-// 5.1s is exactly one full cycle: both phrases, each with its complete
-// 2.2s dwell, so the loader always shows the whole message it exists to
-// show. The cost is real and deliberate — on a warm cache this holds the
-// entry button back by a few seconds it would not otherwise need. Set to 0
-// to go back to "dismiss the moment loading is done".
-const LOADER_MIN_VISIBLE_MS = 5100;
 
 // Zero progress does not mean an empty letter — the fill starts half way
 // up and the load drives the top half only. Two reasons. Hollow condensed
@@ -743,7 +725,6 @@ export default function CrtPowerOn() {
       // 100ms steps in an eased ramp are visible as stepping. This is
       // still plain setInterval, so the timing guarantees above are intact.
       let displayed = 0;
-      const shownAt = performance.now();
       const poll = () => {
         const target = Math.min(1, combinedProgress());
         displayed += (target - displayed) * LOADER_FILL_EASING;
@@ -753,10 +734,19 @@ export default function CrtPowerOn() {
         // the bar looks full.
         if (target >= 1 && displayed > 0.995) displayed = 1;
         setLoaderFill(displayed);
-        const shownLongEnough = performance.now() - shownAt >= LOADER_MIN_VISIBLE_MS;
-        // The 12s deadline still overrides, so a genuinely slow load is
-        // never made slower by the minimum.
-        if ((displayed >= 1 && shownLongEnough) || performance.now() >= deadline) {
+        // Releases on the REAL measured progress, the moment the assets are
+        // actually ready — byte-for-byte the condition this had before the
+        // loader was redesigned.
+        //
+        // It briefly released on the SMOOTHED value plus a 5.1s minimum
+        // instead, so the words would get a long dwell. That was a mistake:
+        // it held the boot screen roughly 3.5s longer than the build that
+        // was working, which pushes the hero video, and everything after it,
+        // 3.5s later for every visitor. A loader exists to hand over as soon
+        // as it can, not to be read. `displayed` stays purely cosmetic now —
+        // revealButton tops it up to full on the way out, so a fast load
+        // shows a quick fill rather than a stalled one.
+        if (target >= 1 || performance.now() >= deadline) {
           if (pollIntervalId !== null) clearInterval(pollIntervalId);
           pollIntervalId = null;
           revealButton();
