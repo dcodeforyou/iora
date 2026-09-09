@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { gsap } from "@/lib/scroll/gsapSetup";
 import { playPristine } from "@/lib/sound/sfx";
+import { HERO_VIDEO_BREAKPOINT } from "@/lib/scroll/heroEntry";
 
 /**
  * Chaos (static, shatter, splat) resolves into one calm, spinning object —
@@ -54,16 +55,69 @@ export default function ResolutionSection() {
   // session the instant anyone scrolled past it — the exact same
   // always-on-video oversight fixed in ProofSection's own glimpse clips
   // (see that file's own doc comment), just not yet applied here.
-  // Explicit .load() on mount for both videos below, same as
-  // heroVideo.ts's own initHeroVideo() — belt-and-suspenders on top of
-  // preload="auto": a `src` set directly in JSX SHOULD start the browser
-  // loading on its own per the preload hint, but real testing showed
-  // these two stuck at readyState 0 indefinitely with no explicit .load()
-  // call forcing the issue. Costs nothing if the browser was already
-  // loading; removes any ambiguity if it wasn't.
+  // Explicit .load() on mount, same as heroVideo.ts's own initHeroVideo()
+  // — belt-and-suspenders on top of preload="auto": a `src` set directly
+  // in JSX SHOULD start the browser loading on its own per the preload
+  // hint, but real testing showed these stuck at readyState 0 indefinitely
+  // with no explicit .load() call forcing the issue.
+  //
+  // Only the video this viewport will ACTUALLY show — an earlier version
+  // called .load() on both unconditionally, which meant a phone eagerly
+  // downloaded the desktop-only model-loop.mp4 (1.6MB) it can never
+  // display, and vice versa. Both elements stay in the DOM either way
+  // (they're CSS-hidden, not unmounted), so this is purely about which
+  // one is told to fetch.
   useEffect(() => {
-    mobileVideoRef.current?.load();
-    videoRef.current?.load();
+    const isMobile = window.innerWidth < HERO_VIDEO_BREAKPOINT;
+    if (isMobile) mobileVideoRef.current?.load();
+    else videoRef.current?.load();
+  }, []);
+
+  // WebKit auto-pauses "video-only background media ... to save power"
+  // (its own wording, seen verbatim in a real AbortError during testing).
+  // BOTH clips here are genuinely video-only — neither file has an audio
+  // track at all (confirmed with ffprobe) — which is exactly the category
+  // that heuristic targets, and newer iOS is markedly more aggressive
+  // about it: reported as this section's video not playing on an iPhone
+  // 16 Pro Max while the same build played fine on an iPhone 12 Pro and
+  // an Android device.
+  //
+  // The failure mode is specifically a ONE-SHOT play() with no recovery:
+  // the observers below call play() once on entry, WebKit then pauses the
+  // element on its own power-saving judgement, and nothing ever asks
+  // again — so it stays paused forever. This listener closes that hole by
+  // re-asserting playback whenever something OTHER than our own code
+  // pauses the element while it's still meant to be playing.
+  // `intentionalPause` distinguishes our own deliberate pause-on-scroll-
+  // away (see the observers) from an external one, so leaving the section
+  // doesn't fight itself. The attempt cap stops a genuinely un-playable
+  // element (autoplay blocked outright, Low Power Mode, decode failure)
+  // from spinning in a play/pause loop forever.
+  const shouldPlayRef = useRef({ mobile: false, desktop: false });
+  useEffect(() => {
+    const targets: Array<{ video: HTMLVideoElement | null; key: "mobile" | "desktop" }> = [
+      { video: mobileVideoRef.current, key: "mobile" },
+      { video: videoRef.current, key: "desktop" },
+    ];
+    const cleanups = targets.map(({ video, key }) => {
+      if (!video) return () => {};
+      let retries = 0;
+      const onPause = () => {
+        if (!shouldPlayRef.current[key] || retries >= 12) return;
+        retries += 1;
+        void video.play().catch(() => {});
+      };
+      const onPlaying = () => {
+        retries = 0;
+      };
+      video.addEventListener("pause", onPause);
+      video.addEventListener("playing", onPlaying);
+      return () => {
+        video.removeEventListener("pause", onPause);
+        video.removeEventListener("playing", onPlaying);
+      };
+    });
+    return () => cleanups.forEach((fn) => fn());
   }, []);
 
   useEffect(() => {
@@ -78,10 +132,24 @@ export default function ResolutionSection() {
           // site's mobile testing (mobile-only report: this video not
           // playing at all). `.catch(() => {})` since a muted+playsInline
           // play() call shouldn't ever actually reject, but isn't worth
-          // surfacing if it somehow does.
-          if (entry.isIntersecting) {
+          // surfacing if it somehow does. shouldPlayRef is what lets the
+          // pause-recovery listener above tell OUR pause (here, on scroll
+          // away) apart from WebKit's own power-saving one.
+          // Deliberately gated on intersectionRatio, NOT isIntersecting:
+          // WebKit's power-saving pause for video-only media keys off how
+          // much of the element it considers visible, so kicking playback
+          // off at literally 1px (isIntersecting/threshold 0) invites it
+          // to immediately pause again. Waiting for a real quarter of the
+          // element avoids provoking it in the first place; the pause
+          // listener above is the safety net if it fires anyway. The
+          // scroll-hint logic below still uses isIntersecting, so its own
+          // threshold-0 behaviour is unchanged (hence the two thresholds
+          // registered on this observer).
+          if (entry.intersectionRatio >= 0.25) {
+            shouldPlayRef.current.mobile = true;
             void video.play().catch(() => {});
-          } else {
+          } else if (!entry.isIntersecting) {
+            shouldPlayRef.current.mobile = false;
             video.pause();
           }
         }
@@ -110,7 +178,7 @@ export default function ResolutionSection() {
         const pitchCommitted = document.getElementById("pitch-section")?.dataset.committed === "true";
         hint.style.opacity = pitchCommitted ? "1" : "";
       },
-      { threshold: 0 },
+      { threshold: [0, 0.25] },
     );
     observer.observe(el);
     return () => observer.disconnect();
@@ -119,7 +187,11 @@ export default function ResolutionSection() {
   // Desktop model-loop video — same IntersectionObserver-gated play/pause
   // as the mobile video above, previously missing entirely here (this one
   // relied solely on the `autoPlay` HTML attribute, which decodes
-  // regardless of scroll position the instant the element mounts).
+  // regardless of scroll position the instant the element mounts). Also
+  // the same 0.25-ratio gate and shouldPlayRef handshake — this clip is
+  // equally audio-track-less, so it's equally eligible for WebKit's
+  // video-only power-saving pause on an iPad or a desktop Safari that
+  // happens to apply it.
   useEffect(() => {
     const el = videoContainerRef.current;
     if (!el) return;
@@ -127,13 +199,15 @@ export default function ResolutionSection() {
       ([entry]) => {
         const video = videoRef.current;
         if (!video) return;
-        if (entry.isIntersecting) {
+        if (entry.intersectionRatio >= 0.25) {
+          shouldPlayRef.current.desktop = true;
           void video.play().catch(() => {});
-        } else {
+        } else if (!entry.isIntersecting) {
+          shouldPlayRef.current.desktop = false;
           video.pause();
         }
       },
-      { threshold: 0 },
+      { threshold: [0, 0.25] },
     );
     observer.observe(el);
     return () => observer.disconnect();
