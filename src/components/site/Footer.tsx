@@ -86,17 +86,13 @@ export default function Footer() {
               to it, and the row-based layout doesn't sit as close to the
               true bottom edge anyway. */}
           <div className="mb-8 flex flex-col gap-2 sm:mb-0">
-            <p className="font-mono-kicker text-[11px] uppercase tracking-[0.2em] text-muted-light">Email</p>
+            <p className="font-mono-kicker text-[11px] uppercase tracking-[0.2em] text-ink/50">Email</p>
             <a
               href="mailto:theiorateam@gmail.com"
               className="font-display text-lg font-medium text-ink transition-colors hover:text-accent sm:text-xl"
             >
               theiorateam@gmail.com
             </a>
-            {/* EMAIL / MENU / IORA labels and the social glyphs all moved
-                off `text-ink/50` (~3:1 on the warm paper, which reads as
-                decorative metadata) onto --color-muted-light at ~5:1.
-                They are actual information, so they now look like it. */}
             {/* Social row — real URLs and exact brand SVGs still pending
                 (see this file's own TODO at the top); these are the
                 standard/generic glyph versions in the meantime, in the
@@ -109,7 +105,7 @@ export default function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={social.label}
-                  className="text-muted-light transition-colors hover:text-accent"
+                  className="text-ink/50 transition-colors hover:text-accent"
                 >
                   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="h-5 w-5">
                     <path d={social.path} />
@@ -119,7 +115,7 @@ export default function Footer() {
             </div>
           </div>
           <div className="flex flex-col items-end gap-2 text-right sm:items-start sm:text-left">
-            <p className="font-mono-kicker text-[11px] uppercase tracking-[0.2em] text-muted-light">Menu</p>
+            <p className="font-mono-kicker text-[11px] uppercase tracking-[0.2em] text-ink/50">Menu</p>
             <Link
               href="/work"
               // Same reasoning as Nav.tsx's own "Work" link — new tab only
@@ -143,7 +139,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="flex flex-col gap-2">
-          <p className="hidden font-mono-kicker text-[11px] uppercase tracking-[0.2em] text-muted-light sm:block">
+          <p className="hidden font-mono-kicker text-[11px] uppercase tracking-[0.2em] text-ink/50 sm:block">
             iora
           </p>
           <p className="text-center text-xs text-ink/60 sm:text-left sm:text-sm sm:text-ink/80">

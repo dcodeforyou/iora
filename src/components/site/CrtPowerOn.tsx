@@ -27,168 +27,6 @@ import { initHeroMusic } from "@/lib/scroll/heroMusic";
 // breaks (each STOP is a full stop) keeps it legible at this size.
 const LINES = ["NOISE IS CHEAP STOP", "SIGNAL IS NOT STOP"];
 type Ch = { char: string; small: boolean };
-
-// The loader's own copy — two status lines from the same transmission,
-// alternating in place while the bar (which IS this text, see below)
-// fills. Order matters: "gathering signal" is what's literally happening
-// first (the video bytes arriving), "preparing iora world" is what that
-// enables.
-const LOADER_PHRASES = ["GATHERING SIGNAL", "PREPARING IORA WORLD"];
-
-// Per-word entrance/exit, matched to broedutrecht.nl's own loader after
-// inspecting it directly: each word is split into per-character
-// inline-blocks sitting inside an `overflow: hidden` mask, and the
-// characters are translated on Y with a small stagger, so the word wipes
-// up into frame letter by letter rather than fading. Words then replace
-// each other in place, which is the "interchanging texts" part.
-//
-// Their timing, read off the live site: 0.5s per character on a
-// cubic-bezier(0.35, 0.8, 0.2, 1) curve with a 0.05s stagger. GSAP has no
-// built-in cubic-bezier ease and CustomEase is a paid plugin, so the curve
-// is matched numerically instead — that bezier passes through ~0.8 at
-// t=0.35, and power4.out gives 0.821 at the same point, which is the
-// closest standard ease by a wide margin (power3.out is 0.725).
-//
-// The exit is deliberately NOT a mirror of the entrance: characters
-// continue travelling UP and out through the top of the mask rather than
-// retreating downward the way they came. Motion in one consistent
-// direction reads as a ticker advancing to the next word; reversing it
-// reads as the word being retracted, i.e. as an undo.
-// Both character arrays below are stored FLAT (one entry per rendered
-// character across all phrases) rather than nested per phrase. Nesting
-// read cleaner but meant a ref callback writing `refs.current[p][c]`,
-// which the react-hooks/refs lint rule rejects outright as accessing a ref
-// during render — the flat form matches the `charRefs.current[i] = el`
-// pattern the STOP lines above already use and the rule already accepts.
-// These ranges are what let the animation still address one phrase at a
-// time. Spaces are skipped because they are rendered as bare spacers with
-// no ref (see the JSX).
-const LOADER_PHRASE_RANGES: readonly (readonly [number, number])[] = (() => {
-  let next = 0;
-  return LOADER_PHRASES.map((phrase) => {
-    const start = next;
-    next += [...phrase].filter((c) => c !== " ").length;
-    return [start, next] as const;
-  });
-})();
-
-// Deliberately much faster than the reference site's own numbers (0.5s /
-// 0.05s stagger, which this originally copied verbatim). Broed's loader
-// words are the whole screen — a leisurely wipe is the main event there.
-// Here the words are a status line under the actual message, and at that
-// scale the same timing read as the loader lagging behind the load rather
-// than reporting on it. The swap now lands close to instant: a whole
-// phrase is in frame in ~0.5s including its stagger, and the full cycle
-// per phrase is ~1.4s instead of ~2.7s.
-// How long the letters take to FORM the word (and to leave). Kept short on
-// purpose: this is transition, not content. Every millisecond spent here is
-// a millisecond the phrase is only half readable, so the useful lever for
-// "show the words longer" is the dwell below, never this. A brief 5x-slower
-// experiment made that obvious — it did not make the words more readable,
-// it just made more of their on-screen life unreadable.
-const LOADER_CHAR_IN = 0.22;
-const LOADER_CHAR_OUT = 0.16;
-// Stagger as a TOTAL SPAN, not a per-character delay. Per-character was
-// the second half of the reported swap lag: at 0.016s each, the 18
-// characters of "PREPARING IORA WORLD" spread the entrance across nearly
-// 0.3s on their own, so the tail of the word landed a third of a second
-// after its head and the longer phrase felt slower than the shorter one
-// for no reason the viewer can see. GSAP's `{ amount }` form divides one
-// fixed span across however many characters there are, so both phrases
-// take exactly the same time and the sweep stays a sweep instead of
-// becoming a queue.
-const LOADER_IN_STAGGER_SPAN = 0.12;
-const LOADER_OUT_STAGGER_SPAN = 0.08;
-// Time a phrase sits FULLY READABLE — measured from the moment its last
-// character lands to the moment it starts leaving, so it is the settled
-// dwell rather than the whole on-screen life (which is this plus the
-// ~0.34s entrance and ~0.24s exit it overlaps with). This is the ONE knob
-// for "show the words longer"; the transition constants above are not, and
-// lengthening those makes readability worse rather than better.
-//
-// Note this is an upper bound on what anyone actually sees, not a promise.
-// The loader lives exactly as long as the assets take to become ready, so
-// on a fast connection a phrase may only get part of its dwell before the
-// whole thing hands over. That is the correct trade: holding the boot
-// screen open just to finish showing a word costs every visitor real time.
-const LOADER_PHRASE_HOLD = 2.2;
-
-// How hard the displayed fill chases the real measured progress, per poll
-// tick. See the poll loop for why this exists at all — short version, the
-// underlying signal is genuinely step-shaped and this is what turns it
-// back into something that reads as filling.
-// PURELY cosmetic, and deliberately kept that way. An earlier version
-// slowed this right down so the fill would take ~5s to close, because the
-// loader was dismissed the moment the fill hit 100% and slowing the fill
-// was therefore a way to keep the words on screen longer. That coupling is
-// gone — release now happens on the real measured progress (see the poll)
-// — and it should not come back: making a loader outlive its own job
-// delays the hero video and everything after it for every visitor.
-//
-// Back at 0.14 the fill closes in ~1.4s from a standing start, fast enough
-// to look like it is keeping up with a quick load rather than crawling
-// while the button is already waiting. Still honest — the displayed value
-// can only ever lag the measured one, never overstate it.
-const LOADER_FILL_EASING = 0.14;
-const LOADER_POLL_MS = 40;
-
-
-// Zero progress does not mean an empty letter — the fill starts half way
-// up and the load drives the top half only. Two reasons. Hollow condensed
-// caps at this size are faint enough on their own that a fully empty word
-// barely registers as text at all, and by the time anyone actually reads
-// the loader some real work has already happened (the boot sequence in
-// front of it takes about a second and a half), so a bar sitting at a true
-// zero is arguably the less honest of the two. The tradeoff is explicit:
-// the top half is a real measurement, the bottom half is a floor.
-const LOADER_FILL_FLOOR = 0.5;
-
-// Single source of truth for the fill level — the JSX's SSR-safe starting
-// value and the live updates in setLoaderFill have to agree exactly, and
-// having each compute the geometry itself is how they quietly drift apart.
-//
-// Returns just the inset percentage, not a whole clip-path, because the
-// level is published as ONE custom property on the wrapper and every
-// character's fill layer reads it from there in CSS. The earlier version
-// wrote a full clip-path string onto all 33 character layers on every
-// tick: 33 style mutations at 40ms, ~825 a second, on elements carrying
-// -webkit-text-stroke, during the exact window when the hero video is
-// buffering and the shard shaders are compiling. That is a real
-// main-thread cost on a phone and matches the "too much concurrent
-// compositing work" failure mode in the device diagnostic. One property
-// write now does the same job.
-function loaderFillTop(p: number) {
-  const shown = LOADER_FILL_FLOOR + p * (1 - LOADER_FILL_FLOOR);
-  return `${GLYPH_BOTTOM_PCT - shown * (GLYPH_BOTTOM_PCT - GLYPH_TOP_PCT)}%`;
-}
-// Where the CAPS actually sit inside the fill layer's line box, as
-// percentages from its top. Even at `leading-none` the box is a full em
-// tall while uppercase glyphs only occupy the cap-height band inside it —
-// the descender room below the baseline (unused by caps) and the gap above
-// the cap line are both empty. Clipping across the raw 0-100% of the box
-// would therefore spend the first eighth and last eighth of the load
-// animating through blank space, so the fill would look stuck at empty,
-// then stuck at full. Mapping progress onto just this band means 0% is
-// exactly "caps entirely hollow" and 100% is exactly "caps entirely
-// solid," with every step in between visible.
-//
-// Not eyeballed — measured in the browser off the real resolved face via
-// canvas TextMetrics. Anton at 100px: fontBoundingBox ascent 118 /
-// descent 33, so the 151px content box centers in the 100px line box
-// (leading-none) with -25.5px half-leading, putting the baseline at
-// 92.5px; actualBoundingBox ascent 86.72 and descent 0.78 (the overshoot
-// on round caps like O and S) put the cap band at 5.8%-93.3%. Rounded
-// outward by a hair each way so the endpoints are unambiguous.
-//
-// Anton's caps fill almost the entire em box, which is a second reason
-// the condensed face suits this: barely any of the fill's travel is spent
-// crossing blank leading. It is also why these numbers are nothing like
-// the ones the previous (Instrument Sans) version used — they are
-// FACE-SPECIFIC, so swapping --font-condensed for a licensed Druk means
-// re-measuring both. Every term scales linearly with font-size, so the
-// percentages themselves hold at all three breakpoints.
-const GLYPH_TOP_PCT = 5;
-const GLYPH_BOTTOM_PCT = 94;
 // Chars grouped into WORDS purely for layout safety, NOT animation
 // timing (the reveal below still strikes in letter by letter, typewriter
 // style — see the effect). Individual inline-block characters gave the
@@ -288,16 +126,9 @@ export default function CrtPowerOn() {
   const charRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const signalLostRef = useRef<HTMLParagraphElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const loaderWrapRef = useRef<HTMLDivElement>(null);
-  // Every phrase is rendered up front and stacked, one absolutely
-  // positioned layer per phrase — NOT one element whose textContent gets
-  // swapped (the earlier version). Per-character masking needs a real DOM
-  // node per character, and rebuilding ~20 nested spans on every phrase
-  // change, mid-animation, from inside a GSAP callback is both more code
-  // and more to go wrong than rendering both phrases once and animating
-  // whichever one is due. Characters live below their own mask when idle,
-  // so an off-duty phrase is invisible without needing to be hidden.
-  const loaderCharRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const loaderLabelRef = useRef<HTMLParagraphElement>(null);
+  const loaderTrackRef = useRef<HTMLDivElement>(null);
+  const loaderFillRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // The DOM nodes below are now always rendered (see the `display`
@@ -326,14 +157,15 @@ export default function CrtPowerOn() {
       const textWrap = textWrapRef.current;
       const signalLost = signalLostRef.current;
       const button = buttonRef.current;
-      const loaderWrap = loaderWrapRef.current;
+      const loaderLabel = loaderLabelRef.current;
+      const loaderTrack = loaderTrackRef.current;
       if (flash && topBar && bottomBar && textWrap && signalLost && button) {
         gsap.set([topBar, bottomBar], { scaleY: 0 });
         gsap.set(flash, { opacity: 0 });
         gsap.set(textWrap, { opacity: 0 });
         gsap.set(signalLost, { opacity: 0 });
         gsap.set(button, { opacity: 0, pointerEvents: "none" });
-        if (loaderWrap) gsap.set(loaderWrap, { opacity: 0 });
+        if (loaderLabel && loaderTrack) gsap.set([loaderLabel, loaderTrack], { opacity: 0 });
         signalBlend.value = 1;
       }
       return;
@@ -356,7 +188,9 @@ export default function CrtPowerOn() {
       // No button, no lock, no wait — reduced motion skips straight to the
       // already-entered state (see AGENTS.md: show final states directly).
       gsap.set(button, { display: "none" });
-      if (loaderWrapRef.current) gsap.set(loaderWrapRef.current, { display: "none" });
+      if (loaderLabelRef.current && loaderTrackRef.current) {
+        gsap.set([loaderLabelRef.current, loaderTrackRef.current], { display: "none" });
+      }
       signalBlend.value = 1;
       return;
     }
@@ -391,13 +225,6 @@ export default function CrtPowerOn() {
     document.documentElement.style.overflow = "hidden";
     lockLenisScroll();
 
-    // Declared ahead of the reset block below, not down with the other
-    // timeline/interval handles — the reset calls setLoaderFill, which
-    // writes this, and a `let` declared further down would still be in its
-    // temporal dead zone at that point (a real ReferenceError, not a
-    // stylistic preference).
-    let lastFillP = 0;
-
     // Explicit reset — React Strict Mode double-invokes this effect in
     // dev (mount, cleanup, mount again); without this, the second run
     // would continue animating from wherever the first run's killed
@@ -408,29 +235,9 @@ export default function CrtPowerOn() {
     gsap.set(chars, { opacity: 0, scale: 1.7 });
     gsap.set(signalLost, { opacity: 0 });
     gsap.set(button, { opacity: 0, pointerEvents: "none" });
-    if (loaderWrapRef.current) {
-      gsap.set(loaderWrapRef.current, { opacity: 0, display: "block" });
-      // Every character parked below its own mask, so no phrase is showing
-      // until the cycle explicitly raises one.
-      //
-      // `y: 0` is NOT redundant, and leaving it out was a real bug worth
-      // stating plainly. The JSX gives each character an SSR-safe inline
-      // `transform: translateY(100%)`. On its first write GSAP PARSES that
-      // existing transform and records it as `y: 24px` — a separate
-      // component from `yPercent` — so a bare `yPercent: 100` stacked on top
-      // of it, putting the character 48px down instead of 24px.
-      //
-      // That inverted the entire loader. At `yPercent: 0`, where a word is
-      // meant to be sitting readable, the leftover `y: 24px` still held it a
-      // full mask-height below the window, invisible. At `yPercent: -100`,
-      // where it is meant to be leaving, the two cancelled to 0 and the word
-      // was actually on screen. So every phrase was hidden for its whole
-      // 2.2s dwell and visible only during its half-second exit sweep.
-      //
-      // Zeroing `y` here makes yPercent the only vertical term, which is
-      // what all the timing arithmetic elsewhere assumes.
-      gsap.set(allLoaderChars(), { y: 0, yPercent: 100 });
-      setLoaderFill(0);
+    if (loaderLabelRef.current && loaderTrackRef.current && loaderFillRef.current) {
+      gsap.set([loaderLabelRef.current, loaderTrackRef.current], { opacity: 0, display: "block" });
+      loaderFillRef.current.style.width = "0%";
     }
     signalBlend.value = 0;
 
@@ -451,7 +258,6 @@ export default function CrtPowerOn() {
     let tl: gsap.core.Timeline | null = null;
     let revealTl: gsap.core.Timeline | null = null;
     let pollIntervalId: number | null = null;
-    let cycleTl: gsap.core.Timeline | null = null;
     rafId1 = requestAnimationFrame(() => {
       rafId2 = requestAnimationFrame(() => {
         tl = gsap.timeline({ onComplete: startLoadingBar });
@@ -514,176 +320,15 @@ export default function CrtPowerOn() {
     // it's done — worth a real slice of the bar, not just an afterthought.
     const combinedProgress = () => heroVideoProgress.value * 0.85 + (shardShadersReady.value ? 0.15 : 0);
 
-    // Drives the fill height of the accent copy of the text. `p` is 0-1
-    // load progress; the clip is an inset from the TOP, so it shrinks as
-    // progress grows — the solid layer is revealed upward from the
-    // baseline, liquid rising inside the hollow letterforms.
-    function setLoaderFill(p: number) {
-      lastFillP = p;
-      // `p` stays the RAW measured progress — the floor is applied only on
-      // the way to the screen (see loaderFillTop). Keeping the raw value is
-      // what lets revealButton's top-up still reason about whether the load
-      // actually finished or timed out.
-      //
-      // ONE write, on the wrapper. Every character's fill layer clips
-      // against this same custom property, so they all move together for
-      // free — and because each character's box shares one line-height, an
-      // identical inset still produces one continuous level line straight
-      // across the word rather than a per-letter staircase.
-      loaderWrapRef.current?.style.setProperty("--loader-fill", loaderFillTop(p));
-    }
-
-    function allLoaderChars() {
-      return loaderCharRefs.current.filter((c): c is HTMLSpanElement => c !== null);
-    }
-
-    function phraseChars(i: number) {
-      const [start, end] = LOADER_PHRASE_RANGES[i];
-      return loaderCharRefs.current
-        .slice(start, end)
-        .filter((c): c is HTMLSpanElement => c !== null);
-    }
-
     function startLoadingBar() {
-      const wrap = loaderWrapRef.current;
-      const chars = allLoaderChars();
-      if (!wrap || chars.length === 0) {
+      const label = loaderLabelRef.current;
+      const track = loaderTrackRef.current;
+      const fill = loaderFillRef.current;
+      if (!label || !track || !fill) {
         revealButton();
         return;
       }
-      gsap.set(wrap, { opacity: 1 });
-
-      // Weak-signal-to-clear-signal flicker: the loader arrives the way a
-      // picture arrives on the CRT behind it — guttering, catching,
-      // guttering again, then locking in. The swings get shallower and the
-      // gaps between them longer as it settles, which is what makes it read
-      // as a signal stabilising rather than as a strobe; a uniform on/off
-      // blink would read as a broken element.
-      //
-      // ONLY on the first appearance, never on a phrase swap. It used to
-      // run on every swap and that was the dominant cause of the swap still
-      // reading as laggy even after the transforms were made simultaneous:
-      // the flicker dips the whole wrap to 0.12 opacity at exactly the
-      // crossover moment, so the two words were in fact changing places
-      // instantly but doing it while nearly invisible, which looks
-      // identical to a gap. Here there is no outgoing word for it to hide,
-      // so it costs nothing and the effect survives where it actually means
-      // something — the signal being acquired in the first place.
-      const flicker = () =>
-        gsap
-          .timeline()
-          .to(wrap, { opacity: 0.25, duration: 0.04 })
-          .to(wrap, { opacity: 1, duration: 0.03 })
-          .to(wrap, { opacity: 0.12, duration: 0.05 })
-          .to(wrap, { opacity: 0.9, duration: 0.04 })
-          .to(wrap, { opacity: 0.4, duration: 0.05 })
-          .to(wrap, { opacity: 1, duration: 0.16, ease: "power2.out" });
-
-      // The first phrase arriving. Deliberately OUTSIDE the loop below —
-      // see startPhraseLoop for why the loop can't also own the very first
-      // entrance.
-      cycleTl = gsap.timeline({ onComplete: startPhraseLoop });
-      cycleTl.add(flicker(), 0);
-      cycleTl.to(
-        phraseChars(0),
-        {
-          yPercent: 0,
-          duration: LOADER_CHAR_IN,
-          stagger: { amount: LOADER_IN_STAGGER_SPAN },
-          ease: "power4.out",
-        },
-        0,
-      );
-
-      // The phrase ticker, as a loop of SWAPS rather than a loop of
-      // phrases. This distinction is the whole fix for the reported lag.
-      //
-      // The obvious structure — "phrase enters, holds, exits" repeated — is
-      // what this had, and it has dead air built into it two different
-      // ways. Within an iteration the exit finishes before the next
-      // entrance starts, so the screen is empty for the length of an exit;
-      // and across the loop seam it is worse, because a GSAP timeline ends
-      // when its last child ends, which is the final exit, so the repeat
-      // waits out that whole exit before the first phrase comes back.
-      //
-      // Making each iteration "hold, then exit the current word and enter
-      // the next one AT THE SAME INSTANT" fixes both at once. Nothing is
-      // ever waiting on anything: the words cross, like a split-flap board
-      // rather than a slideshow. And because each iteration now ENDS on an
-      // entrance instead of an exit, the loop seam is just another swap —
-      // which is exactly why the first entrance has to live outside the
-      // loop, as a one-time preamble.
-      function startPhraseLoop() {
-        const loop = gsap.timeline({ repeat: -1 });
-        // Absolute positions, and every iteration STATES the world it needs
-        // instead of inheriting it. Both details exist because of a real bug
-        // measured in this timeline, not as defensive habit.
-        //
-        // The bug: a repeating GSAP timeline rewinds its tweens on every
-        // repeat. Tweens that have not started yet at the new time are
-        // re-rendered at their FROM value. The previous version ended each
-        // cycle on "phrase 0 arrives" and assumed that state carried into
-        // the next cycle — but the moment the loop restarted, GSAP reverted
-        // that very tween and threw phrase 0 straight back below its mask.
-        // Sampling the built timeline showed phrase 0 fully readable for
-        // 0.06s per cycle against phrase 1's 2.28s, with 2.2s of completely
-        // blank line at the top of every loop. That is the "word flashes for
-        // a fraction of a second then vanishes" report, and no amount of
-        // adjusting the hold could have fixed it, because the hold was being
-        // spent on an empty line.
-        //
-        // The fix: open each iteration with explicit `set`s that park every
-        // phrase except the one that should be showing. Mid-cycle they are
-        // no-ops — they assert exactly what the previous iteration's
-        // animation just produced — but they make each iteration
-        // self-contained, so the repeat seam lands in a defined state rather
-        // than a rewound one.
-        let at = 0;
-        LOADER_PHRASES.forEach((_, i) => {
-          const current = phraseChars(i);
-          const next = phraseChars((i + 1) % LOADER_PHRASES.length);
-          if (current.length === 0 || next.length === 0) return;
-
-          LOADER_PHRASES.forEach((_, j) => {
-            if (j !== i) loop.set(phraseChars(j), { yPercent: 100 }, at);
-          });
-          loop.set(current, { yPercent: 0 }, at);
-
-          // Both words move on the SAME frame — the swap has no gap in it.
-          // No flicker and nothing touching opacity either (see the
-          // flicker's own comment above), so the two stay fully opaque while
-          // they roll past each other.
-          const swapAt = at + LOADER_PHRASE_HOLD;
-          loop.to(
-            current,
-            {
-              yPercent: -100,
-              duration: LOADER_CHAR_OUT,
-              stagger: { amount: LOADER_OUT_STAGGER_SPAN },
-              ease: "power2.in",
-            },
-            swapAt,
-          );
-          loop.to(
-            next,
-            {
-              yPercent: 0,
-              duration: LOADER_CHAR_IN,
-              stagger: { amount: LOADER_IN_STAGGER_SPAN },
-              ease: "power4.out",
-            },
-            swapAt,
-          );
-          // The iteration ends the instant the incoming word has fully
-          // landed, so the next iteration's hold is time spent readable
-          // rather than time that includes an entrance.
-          at = swapAt + LOADER_CHAR_IN + LOADER_IN_STAGGER_SPAN;
-        });
-        // Hand the handle over so revealButton and the cleanup still have
-        // exactly one timeline to kill — the preamble is finished by the
-        // time this runs, which is what makes the swap safe.
-        cycleTl = loop;
-      }
+      gsap.to([label, track], { opacity: 1, duration: 0.3, ease: "power1.out" });
 
       // REAL wall-clock deadline (performance.now(), not a tick-count) —
       // an earlier version tracked elapsed time as `waited += 0.1` per
@@ -700,125 +345,40 @@ export default function CrtPowerOn() {
       // this needs to keep working through.
       const MAX_WAIT_MS = 12000;
       const deadline = performance.now() + MAX_WAIT_MS;
-      // The displayed level is NOT the measured level — it chases it.
-      //
-      // Reported directly as "the filling isn't increasing, it's just low
-      // or just full," and the measurement backs that up: the underlying
-      // signal is genuinely step-shaped, not gradual. `heroVideoProgress`
-      // (see heroVideo.ts) moves on the video element's `progress` event,
-      // which browsers fire sparsely — often two or three times for the
-      // whole file — and `canplaythrough` then slams it to 1 outright.
-      // The shader half is worse: it is a boolean, contributing its 0.15
-      // in a single jump. So the honest value really does spend its life
-      // at a couple of discrete plateaus, and painting it directly is what
-      // produced the low-then-full behaviour.
-      //
-      // The fix belongs here, not in heroVideo.ts — that module should
-      // keep reporting exactly what it knows. This is a display concern:
-      // each tick the drawn value moves a fixed FRACTION of its remaining
-      // distance to the real one, which turns any step into a fast
-      // exponential ease-out and makes the level visibly climb. It stays
-      // honest in the direction that matters, since it can only ever lag
-      // the true value, never overstate it.
-      //
-      // Ticking at 40ms rather than the old 100ms purely for smoothness —
-      // 100ms steps in an eased ramp are visible as stepping. This is
-      // still plain setInterval, so the timing guarantees above are intact.
-      let displayed = 0;
       const poll = () => {
-        const target = Math.min(1, combinedProgress());
-        displayed += (target - displayed) * LOADER_FILL_EASING;
-        // Snap the last hair shut rather than easing forever — an
-        // exponential chase never formally arrives, and without this the
-        // completion test below could sit unsatisfied indefinitely while
-        // the bar looks full.
-        if (target >= 1 && displayed > 0.995) displayed = 1;
-        setLoaderFill(displayed);
-        // Releases on the REAL measured progress, the moment the assets are
-        // actually ready — byte-for-byte the condition this had before the
-        // loader was redesigned.
-        //
-        // It briefly released on the SMOOTHED value plus a 5.1s minimum
-        // instead, so the words would get a long dwell. That was a mistake:
-        // it held the boot screen roughly 3.5s longer than the build that
-        // was working, which pushes the hero video, and everything after it,
-        // 3.5s later for every visitor. A loader exists to hand over as soon
-        // as it can, not to be read. `displayed` stays purely cosmetic now —
-        // revealButton tops it up to full on the way out, so a fast load
-        // shows a quick fill rather than a stalled one.
-        if (target >= 1 || performance.now() >= deadline) {
+        const p = Math.min(1, combinedProgress());
+        fill.style.width = `${p * 100}%`;
+        if (p >= 1 || performance.now() >= deadline) {
           if (pollIntervalId !== null) clearInterval(pollIntervalId);
           pollIntervalId = null;
           revealButton();
         }
       };
       poll();
-      pollIntervalId = window.setInterval(poll, LOADER_POLL_MS);
+      pollIntervalId = window.setInterval(poll, 100);
+      poll();
     }
 
     function revealButton() {
-      const wrap = loaderWrapRef.current;
-      const chars = allLoaderChars();
+      const label = loaderLabelRef.current;
+      const track = loaderTrackRef.current;
       if (!button) return;
-      // Kill the phrase ticker first. It loops forever by design, so
-      // nothing below would ever run against a settled state otherwise —
-      // and a word mid-entrance would keep rising into a loader that is
-      // already being dismissed.
-      cycleTl?.kill();
-      cycleTl = null;
-      // Only the first-appearance flicker touches opacity now, but the load
-      // can genuinely finish while it is still running — it is barely a
-      // third of a second — and killing it mid-swing would strand the wrap
-      // at whatever dipped value it was passing through, fading the final
-      // top-up out from under the user. Put it back to full before the exit
-      // runs.
-      if (wrap) gsap.set(wrap, { opacity: 1 });
-      // display:"none" once gone (not just an off-screen transform) — the
-      // loader is a normal flex-flow sibling of the button inside
-      // textWrap's own flex column, not absolutely positioned, so leaving
-      // it in flow would still hold its layout space and push the button
-      // down below where the loader used to be instead of the button
-      // taking that same slot.
-      const hasLoader = !!wrap && chars.length > 0;
-      let exitDuration = 0;
+      // display:"none" once faded (not just opacity 0) — these are normal
+      // flex-flow siblings of the button inside textWrap's own flex
+      // column, not absolutely positioned, so leaving them at opacity:0
+      // would still hold their layout space and push the button down
+      // below where the loader used to be instead of the button taking
+      // that same slot.
+      const hasLoader = !!(label && track);
       if (hasLoader) {
-        const exitTl = gsap.timeline();
-        // Top the fill up to 100% before dismissing it. On the normal path
-        // the poll already reached 1 and this is a no-op, but the 12s
-        // deadline path can bail out at any level — letting the words leave
-        // visibly half-filled reads as the load having failed rather than
-        // finished.
-        const topUp = { v: lastFillP };
-        if (lastFillP < 1) {
-          exitDuration += 0.3;
-          exitTl.to(topUp, {
-            v: 1,
-            duration: 0.3,
-            ease: "power2.out",
-            onUpdate: () => setLoaderFill(topUp.v),
-          });
-        }
-        // The last word leaves the way every other word left — up and out
-        // through the top of its mask — rather than fading, so the loader's
-        // dismissal is the same gesture as its ticker instead of a
-        // different one bolted on at the end. Targets ALL characters, not
-        // just the phrase that happens to be showing: whichever phrase was
-        // mid-cycle is unknowable here, and the idle phrase's characters
-        // are already off-screen, so moving them further off costs nothing.
-        exitDuration += LOADER_CHAR_OUT + LOADER_OUT_STAGGER_SPAN;
-        exitTl.to(chars, {
-          yPercent: -100,
-          duration: LOADER_CHAR_OUT,
-          stagger: { amount: LOADER_OUT_STAGGER_SPAN },
-          ease: "power2.in",
-          onComplete: () => gsap.set(wrap, { display: "none" }),
+        gsap.to([label, track], {
+          opacity: 0,
+          duration: 0.25,
+          ease: "power1.out",
+          onComplete: () => gsap.set([label, track], { display: "none" }),
         });
       }
-      // Button waits out the loader's own exit — an earlier fixed 0.15s
-      // guess predates the exit being a real staggered animation whose
-      // length depends on the phrase, so it is computed from the same
-      // constants the exit is built from rather than restated as a number.
-      revealTl = gsap.timeline({ delay: hasLoader ? exitDuration * 0.8 : 0 });
+      revealTl = gsap.timeline({ delay: hasLoader ? 0.15 : 0 });
       // The entry button — same flicker-catch entrance AttentionSection's
       // own words use (a few jagged opacity swings before settling), not a
       // plain fade — reads as "catching a signal" like the rest of this
@@ -839,7 +399,6 @@ export default function CrtPowerOn() {
       cancelAnimationFrame(rafId2);
       tl?.kill();
       if (pollIntervalId !== null) clearInterval(pollIntervalId);
-      cycleTl?.kill();
       revealTl?.kill();
       // Deliberately NOT unlocking scroll here (an earlier version did,
       // unconditionally) — this cleanup's only real caller in practice is
@@ -1038,7 +597,6 @@ export default function CrtPowerOn() {
   // none` instead of unmounted) means their already-correct retracted
   // state, once set, is never touched again.
   let flatIndex = 0;
-  let loaderIndex = 0;
 
   return (
     <div style={pathname === "/" ? undefined : { display: "none" }}>
@@ -1098,137 +656,29 @@ export default function CrtPowerOn() {
             ))}
           </p>
         ))}
-        {/* Real loading bar — except the bar IS the type. Fills based on
-            actual hero-video buffer progress + WebGL shard-shader compile
-            state (see startLoadingBar/combinedProgress above), not a
-            simulated/timed fake. Replaces an earlier label + 2px track
-            pair: a separate rule under a separate caption was two pieces
-            of chrome saying one thing, and neither belonged to the
-            telegram the rest of this screen is written as. Sits in the
-            button's own spot — the button only appears once this finishes
-            (see revealButton).
-
-            TWO stacked copies of the same string, not one element with a
-            gradient. The lower (in-flow) copy is transparent with a
-            1px chalk stroke — hollow caps. The upper copy is absolutely
-            positioned over it in solid accent and clipped from the top
-            (see setLoaderFill), so progress reads as the accent rising up
-            inside the empty letterforms. `background-clip: text` with a
-            gradient would be the one-element version, but the outline has
-            to survive underneath the fill, and text-stroke + a clipped
-            background on the same node fight over the same pixels.
-
-            Set in font-condensed (Anton, standing in for Druk Condensed —
-            see globals.css), NOT the mono-kicker the other labels here use
-            and no longer Instrument Sans either. Both earlier attempts
-            failed the same way: the mechanic needs glyphs with real
-            enclosed area for the level to climb through, and neither a
-            0.3em-tracked mono nor a proportional sans at 700 packs enough
-            ink per character — the fill had almost nothing to fill. A heavy
-            condensed grotesque makes each letter a tall solid slab, which
-            is exactly why the reference site's own loader reads at a
-            glance. Tracking stays near zero so the phrase fills as one mass
-            rather than as separate letters.
-
-            Sized to stay under the "STOP" words above it: this is a status
-            line reporting on the message, not a competing headline. The
-            face being condensed buys real headroom here — it occupies far
-            less width per character than the STOP lines do, so it can take
-            a larger font-size than the old version without reading as
-            louder.
-
-            leading-none because BOTH the fill clip and the character masks
-            are measured against this box — see GLYPH_TOP_PCT. Static
+        {/* Real loading bar — fills based on actual hero-video buffer
+            progress + WebGL shard-shader compile state (see
+            startLoadingBar/combinedProgress above), not a simulated/timed
+            fake. Same kicker-label register as "[ signal lost ]" above it
+            (brackets, mono, tracked-out, muted), so it reads as another
+            status line in the same transmission, not a bolted-on UI
+            widget. Sits in the button's own spot — the button only
+            appears once this finishes (see revealButton). Static
             opacity-0 is the SSR-safe default, same convention as every
             other element on this screen. */}
-        <div
-          ref={loaderWrapRef}
+        <p
+          ref={loaderLabelRef}
           aria-hidden="true"
-          className="relative mt-8 h-[1em] w-full font-condensed text-lg leading-none tracking-[0.015em] uppercase opacity-0 sm:text-xl md:text-2xl"
-          // The fill level lives here as one custom property that every
-          // character's fill layer clips against — SSR-safe starting value,
-          // and the only thing the poll writes at runtime.
-          style={{ "--loader-fill": loaderFillTop(0) } as React.CSSProperties}
+          className="mt-8 font-mono-kicker text-xs uppercase tracking-[0.3em] text-chalk-muted opacity-0"
         >
-          {LOADER_PHRASES.map((phrase, phraseIdx) => (
-            // Absolutely stacked and centered so a longer phrase can't
-            // shift the layout when it takes over, and so the wrap keeps
-            // one fixed 1em height regardless of which phrase is up. The
-            // wrap carries the type styles; `h-[1em]` therefore resolves
-            // against the loader's own font-size at every breakpoint.
-            <div key={phraseIdx} className="absolute inset-0 flex justify-center">
-              {[...phrase].map((ch, charIdx) => {
-                // One running index across every phrase, matching the flat
-                // ref arrays (see LOADER_PHRASE_RANGES). Incremented only
-                // for real characters, so spaces never consume a slot.
-                const i = ch === " " ? -1 : loaderIndex++;
-                return ch === " " ? (
-                  // Word gaps are a plain spacer, not a masked character —
-                  // a space has no glyph to reveal, and giving it a ref
-                  // would put a dead element in the stagger, opening a
-                  // visible hole in the sweep timing mid-phrase.
-                  <span key={charIdx} className="w-[0.22em]" />
-                ) : (
-                  // The mask. overflow-hidden on a box exactly one line
-                  // tall is what turns a plain Y translation into a wipe:
-                  // the character is always fully rendered, just parked
-                  // outside its own window until its turn.
-                  <span key={charIdx} className="inline-block overflow-hidden">
-                    <span
-                      ref={(el) => {
-                        loaderCharRefs.current[i] = el;
-                      }}
-                      className="relative block"
-                      // SSR-safe starting position, below the mask. Written
-                      // as an inline transform rather than a Tailwind
-                      // translate utility on purpose: Tailwind v4 compiles
-                      // those to the standalone `translate` property, which
-                      // GSAP's own `transform` writes would NOT override.
-                      style={{ transform: "translateY(100%)" }}
-                    >
-                      {/* Grey outline (chalk-muted, the same token the
-                          "[ signal lost ]" kicker uses) rather than the
-                          near-white chalk this used before — the unfilled
-                          part of the word is the part that has NOT arrived
-                          yet, so it should sit back at the muted end of the
-                          palette and let the accent be the only thing that
-                          reads as present. Kept at full opacity rather than
-                          a faded white: against Hero's live CRT static,
-                          which is bright high-frequency noise, a
-                          part-opacity hairline dissolves entirely and the
-                          hollow letters read as nothing at all.
-
-                          0.75px, not 1px — the type is smaller now, and a
-                          full pixel of stroke on a condensed face at this
-                          size starts closing up the counters it exists to
-                          show. No drop shadow, unlike the STOP lines: the
-                          mask would clip it at the line box and leave a
-                          hard edge under every character. */}
-                      <span
-                        className="block text-transparent"
-                        style={{ WebkitTextStroke: "0.75px #8a8a92" }}
-                      >
-                        {ch}
-                      </span>
-                      {/* The fill layer carries no stroke of its own, so
-                          the accent sits just inside the outline and leaves
-                          a chalk rim around it. */}
-                      {/* No ref. The fill level arrives through the
-                          --loader-fill custom property set once on the
-                          wrapper (see setLoaderFill), so every character
-                          picks it up in CSS with no per-element JS write. */}
-                      <span
-                        className="absolute inset-0 block text-accent"
-                        style={{ clipPath: "inset(var(--loader-fill) 0 0 0)" }}
-                      >
-                        {ch}
-                      </span>
-                    </span>
-                  </span>
-                );
-              })}
-            </div>
-          ))}
+          [ preparing iora world ]
+        </p>
+        <div
+          ref={loaderTrackRef}
+          aria-hidden="true"
+          className="mt-3 h-[2px] w-48 overflow-hidden bg-chalk/15 opacity-0 sm:w-64"
+        >
+          <div ref={loaderFillRef} className="h-full w-0 bg-accent" />
         </div>
         {/* The only way past this screen — see handleEnter. Reads as a
             third line of the SAME telegram transmission above it, not a

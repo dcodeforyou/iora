@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Anton, Instrument_Sans } from "next/font/google";
+import { Instrument_Sans } from "next/font/google";
 import { GeistMono } from "geist/font/mono";
 import SmoothScroll from "@/lib/scroll/SmoothScroll";
 import CrtPowerOn from "@/components/site/CrtPowerOn";
@@ -41,32 +41,6 @@ const instrumentSans = Instrument_Sans({
 // no extra network request beyond the subset actually used.
 const geistMono = GeistMono;
 
-// A THIRD face, used in exactly one place: the boot screen's loading
-// words (see CrtPowerOn). Deliberately not a general-purpose addition —
-// the two-face discipline above still governs the rest of the site, and
-// nothing else should reach for this.
-//
-// It exists because the loader's whole mechanic is a fill rising inside
-// hollow letterforms, and that needs glyphs with real enclosed area to
-// fill. Instrument Sans at 700 was the first attempt and was too light and
-// too wide-spaced for it to read; a heavy condensed grotesque packs far
-// more ink per character, so each letter becomes a tall solid shape the
-// level can visibly climb.
-//
-// Anton, not Druk Condensed. Druk (Commercial Type) is the face the
-// reference site uses, and it is a paid licence — its font files can't be
-// copied out of someone else's site into this project. Anton (SIL Open
-// Font License) is the closest free equivalent: same heavy-condensed
-// grotesque genre, same "single very bold weight" character. If a Druk
-// licence is ever bought, swapping it in means changing only
-// `--font-condensed` in globals.css — nothing in the component knows the
-// family name.
-const anton = Anton({
-  variable: "--font-anton",
-  subsets: ["latin"],
-  weight: "400", // Anton ships one weight; it is already display-black.
-});
-
 const SITE_URL = "https://iorastudio.vercel.app";
 const SITE_TITLE = "ïora — Creative Growth Ecosystems";
 const SITE_DESCRIPTION =
@@ -100,7 +74,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${instrumentSans.variable} ${geistMono.variable} ${anton.variable} h-full antialiased`}
+      className={`${instrumentSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
         {/* Runs synchronously as the browser parses <head>, before Lenis,

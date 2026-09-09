@@ -5,57 +5,14 @@
   only at the Impact/splat beat. Do not invent colors in components — every
   hex value the site uses lives here.
 */
-/*
-  ── PALETTE BACKUP ─────────────────────────────────────────────────────
-  The exact set in use before the contrast pass below. Kept verbatim so
-  the previous look can be restored by copying these three lines back over
-  their counterparts; the rest of the pass is additive and harmless if
-  left in place.
-
-    --color-chalk-muted: #8a8a92;   (now #a6a7aa)
-
-  And in components, the coral section (PitchSection's overlay) used
-  `text-chalk` for its headline emphasis, body copy and guarantee line,
-  with `text-ink/60` on the eyebrow and `text-ink` on the headline.
-  ───────────────────────────────────────────────────────────────────────
-*/
 :root {
   --color-ink: #0b0c10;       /* base background — CRT charcoal, not pure #000 */
   --color-ink-soft: #14161c;   /* secondary panels / cards */
   --color-chalk: #f4f4f2;      /* primary text on dark */
-  /* Raised from #8a8a92. Every kicker, caption and label on the site runs
-     through this token, and the audit's "increase microcopy contrast
-     everywhere" lands here in one edit: 5.4:1 on ink before, 7.8:1 now. */
-  --color-chalk-muted: #a6a7aa;/* secondary text, captions */
+  --color-chalk-muted: #8a8a92;/* secondary text, captions */
   --color-glass-glow: #eaf6ff; /* refraction/backdrop light for glass shards only */
   --color-accent: #ff4e32;     /* the ONE splat accent — earned at beat 5, not before */
   --color-accent-soft: #ff4e3226;
-
-  /* ── ON-CORAL TEXT ────────────────────────────────────────────────
-     The single most important correction in the audit. --color-chalk on
-     --color-accent is ~2.99:1, which fails for body copy at normal size
-     and sits on the boundary even for large text. The fix is NOT to
-     darken the coral — that is the brand — it is to invert the type.
-     This warm near-black against the same coral is ~5.9:1, and being
-     warm rather than pure #000 keeps it inside the coral's own colour
-     world instead of reading as a generic black overlay. */
-  --color-coral-ink: #180b08;
-
-  /* Muted tone for PAPER backgrounds (the footer). --color-chalk-muted is
-     tuned for dark grounds and is far too light on warm white; this is
-     ~5:1 there, which turns EMAIL / MENU / IORA and the social icons from
-     decorative metadata back into readable information. */
-  --color-muted-light: #6b6865;
-
-  /* Card surfaces for the ecosystem section. Near-opaque and layered
-     rather than heavily translucent: the previous glass let the light
-     trail through at the same visual depth as the copy sitting on it, so
-     atmosphere and information competed. */
-  --color-surface-raised: #1b1d21;
-  /* Body copy inside those cards — deliberately between chalk and
-     chalk-muted, so the card's value statement reads as the second-
-     strongest thing on the card rather than dropping to caption level. */
-  --color-card-body: #d3d3d0;
 
   /* Two faces, three roles — display and body deliberately share ONE
      family (see layout.tsx for the reasoning). Keeping --font-display and
@@ -66,29 +23,6 @@
   --font-display: var(--font-instrument-sans);
   --font-mono-kicker: var(--font-geist-mono);
   --font-body: var(--font-instrument-sans);
-  /* Heavy condensed display face — ONE call site, the boot loader's
-     filling words (see CrtPowerOn.tsx and layout.tsx for why it earns a
-     third family, against the two-face rule stated above). Swapping in a
-     licensed Druk Condensed later is a change to this line only; nothing
-     downstream knows the family name.
-
-     The Impact fallback is deliberate rather than a bare sans: it is the
-     one heavy-condensed face installed on effectively every machine, so
-     if Anton has not painted yet the words still show up condensed and
-     black instead of collapsing into a wide default sans, which would
-     visibly reflow the entire line. */
-  --font-condensed: var(--font-anton), "Impact Fallback", Impact, "Arial Narrow", sans-serif;
-}
-
-/* Impact is local-only and runs noticeably larger than Anton at the same
-   font-size, so an unadjusted fallback would paint oversized text for a
-   frame and then visibly shrink on swap. `size-adjust` scales the local
-   face down onto Anton's metrics so the swap is close to invisible — the
-   same trick broedutrecht.nl uses for its own Druk fallback. */
-@font-face {
-  font-family: "Impact Fallback";
-  src: local("Impact");
-  size-adjust: 88%;
 }
 
 @theme inline {
@@ -99,14 +33,9 @@
   --color-glass-glow: var(--color-glass-glow);
   --color-accent: var(--color-accent);
   --color-accent-soft: var(--color-accent-soft);
-  --color-coral-ink: var(--color-coral-ink);
-  --color-muted-light: var(--color-muted-light);
-  --color-surface-raised: var(--color-surface-raised);
-  --color-card-body: var(--color-card-body);
   --font-display: var(--font-display);
   --font-mono-kicker: var(--font-mono-kicker);
   --font-body: var(--font-body);
-  --font-condensed: var(--font-condensed);
 }
 
 body {
