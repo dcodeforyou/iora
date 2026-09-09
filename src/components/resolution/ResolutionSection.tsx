@@ -102,10 +102,24 @@ export default function ResolutionSection() {
     const cleanups = targets.map(({ video, key }) => {
       if (!video) return () => {};
       let retries = 0;
+      let timer: number | null = null;
+      // SPACED retries, not immediate ones. The first version re-played
+      // synchronously inside the `pause` handler, which meant that if the
+      // platform pauses the element right back (exactly the case this
+      // exists for) all twelve attempts were consumed within a few
+      // microseconds and the recovery was permanently dead before the
+      // user had even reached the section. Spacing them over ~8s covers a
+      // transient refusal — e.g. the element only becoming eligible once
+      // more of it is genuinely on screen — while still giving up on a
+      // hard block (Low Power Mode, decode failure) instead of looping.
       const onPause = () => {
-        if (!shouldPlayRef.current[key] || retries >= 12) return;
-        retries += 1;
-        void video.play().catch(() => {});
+        if (!shouldPlayRef.current[key] || retries >= 12 || timer !== null) return;
+        timer = window.setTimeout(() => {
+          timer = null;
+          if (!shouldPlayRef.current[key]) return;
+          retries += 1;
+          void video.play().catch(() => {});
+        }, 700);
       };
       const onPlaying = () => {
         retries = 0;
@@ -113,6 +127,7 @@ export default function ResolutionSection() {
       video.addEventListener("pause", onPause);
       video.addEventListener("playing", onPlaying);
       return () => {
+        if (timer !== null) clearTimeout(timer);
         video.removeEventListener("pause", onPause);
         video.removeEventListener("playing", onPlaying);
       };
@@ -303,9 +318,22 @@ export default function ResolutionSection() {
             for either to buffer before this section is ever reached —
             nowhere near the eager-hero-video cost this exact preload
             question was originally about. */}
+        {/* `poster` is the part that makes this section correct no matter
+            what the platform decides. iOS can refuse to autoplay muted
+            video-only media for reasons the page cannot see or override —
+            Low Power Mode blocks it outright, and WebKit's own
+            power-saving heuristics can pause it with no error surfaced.
+            Without a poster, that refusal renders as a blank section,
+            which is exactly what was reported on iPhone 16 Pro Max while
+            the same build played fine on an iPhone 12 Pro and an Android
+            device. With one, the worst case degrades to a still frame of
+            the very same footage — the intended composition, just not
+            moving — instead of an empty hole. 24KB, and the browser only
+            fetches it when it actually needs something to show. */}
         <video
           ref={mobileVideoRef}
           src="/iora-footer.mp4"
+          poster="/iora-footer-poster.jpg"
           preload="auto"
           loop
           muted
@@ -345,9 +373,13 @@ export default function ResolutionSection() {
             the same reason as the mobile video's own comment — "metadata"
             left this element stuck at readyState 0 permanently once
             play() was called on it. */}
+        {/* Poster for the same reason as the mobile clip above — this one
+            is equally audio-track-less and so equally eligible for the
+            same refusal on an iPad or a Safari applying the heuristic. */}
         <video
           ref={videoRef}
           src="/model-loop.mp4"
+          poster="/model-loop-poster.jpg"
           preload="auto"
           loop
           muted
