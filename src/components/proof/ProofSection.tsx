@@ -792,12 +792,29 @@ export default function ProofSection() {
             transparent) instead — these blobs are what the cards' new
             backdrop-blur frosted glass actually has to refract, and the
             original faint values left it with barely anything to catch. */}
+        {/* Radial-gradient falloff, not `filter: blur()` on a solid circle
+            — same fix and reasoning as MobileGlassBackdrop's own comment
+            (WebKit bug 319187: large blurred layers stall iOS rendering;
+            reproduced on iPhone 16 Pro Max while 12 Pro/Android were
+            fine). These two sit in the SAME stack as that backdrop and
+            under the cards' own backdrop-filter, so they were adding two
+            more large blur rasterizations to exactly the region already
+            struggling. Boxes enlarged since a gradient can't spread past
+            its own box the way a blur does. */}
         <div
-          className="pointer-events-none absolute left-1/2 top-[55vh] h-[50vh] w-[50vh] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/25 blur-[100px]"
+          className="pointer-events-none absolute left-1/2 top-[55vh] h-[85vh] w-[85vh] -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle, color-mix(in srgb, var(--color-accent) 25%, transparent) 0%, color-mix(in srgb, var(--color-accent) 20%, transparent) 12%, color-mix(in srgb, var(--color-accent) 14%, transparent) 22%, color-mix(in srgb, var(--color-accent) 9%, transparent) 32%, color-mix(in srgb, var(--color-accent) 5%, transparent) 42%, color-mix(in srgb, var(--color-accent) 2%, transparent) 52%, color-mix(in srgb, var(--color-accent) 0.7%, transparent) 64%, transparent 100%)",
+          }}
           aria-hidden="true"
         />
         <div
-          className="pointer-events-none absolute left-[30%] top-[70vh] h-[35vh] w-[35vh] -translate-x-1/2 -translate-y-1/2 rounded-full bg-chalk/15 blur-[80px]"
+          className="pointer-events-none absolute left-[30%] top-[70vh] h-[60vh] w-[60vh] -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle, color-mix(in srgb, var(--color-chalk) 15%, transparent) 0%, color-mix(in srgb, var(--color-chalk) 12%, transparent) 12%, color-mix(in srgb, var(--color-chalk) 8.5%, transparent) 22%, color-mix(in srgb, var(--color-chalk) 5.5%, transparent) 32%, color-mix(in srgb, var(--color-chalk) 3%, transparent) 42%, color-mix(in srgb, var(--color-chalk) 1.2%, transparent) 52%, color-mix(in srgb, var(--color-chalk) 0.4%, transparent) 64%, transparent 100%)",
+          }}
           aria-hidden="true"
         />
         {/* The actual glass — real-time WebGL refraction (see
@@ -846,7 +863,22 @@ export default function ProofSection() {
                 // plane, so they stay crisp — only what's behind the card
                 // gets blurred. Desktop reverts all of it (still the real
                 // WebGL refraction underneath, untouched).
-                className="liquid-glass-card group relative block h-[95vh] w-full max-w-md overflow-hidden backdrop-blur-2xl [background:linear-gradient(to_bottom,color-mix(in_srgb,var(--color-chalk)_10%,transparent),color-mix(in_srgb,var(--color-chalk)_3%,transparent))] shadow-[inset_0_1px_1px_rgba(244,244,242,0.3),inset_0_0_50px_rgba(244,244,242,0.05)] sm:bg-none sm:shadow-none sm:backdrop-blur-none"
+                //
+                // backdrop-blur-lg (16px), stepped down from 2xl (40px):
+                // unlike a normal filter, backdrop-filter can't be cached
+                // as a static layer — it re-samples and re-blurs whatever
+                // is behind it on every frame the backdrop changes, and
+                // this card is nearly full-viewport (95vh), so on a large
+                // 120Hz phone that's a very large region re-blurred twice
+                // as often as on a 60Hz one (part of why iPhone 16 Pro Max
+                // struggled where 12 Pro didn't). Blur cost scales with
+                // radius, so 40px -> 16px is a real reduction — and it's
+                // visually near-free here specifically because what sits
+                // behind these cards is now a set of smooth radial
+                // gradients (see MobileGlassBackdrop): there's no
+                // high-frequency detail left for the extra radius to
+                // remove, so the frosted result reads the same.
+                className="liquid-glass-card group relative block h-[95vh] w-full max-w-md overflow-hidden backdrop-blur-lg [background:linear-gradient(to_bottom,color-mix(in_srgb,var(--color-chalk)_10%,transparent),color-mix(in_srgb,var(--color-chalk)_3%,transparent))] shadow-[inset_0_1px_1px_rgba(244,244,242,0.3),inset_0_0_50px_rgba(244,244,242,0.05)] sm:bg-none sm:shadow-none sm:backdrop-blur-none"
                 onMouseEnter={() => handleGlimpseEnter(i)}
                 onMouseLeave={() => handleGlimpseLeave(i)}
               >

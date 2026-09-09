@@ -313,18 +313,39 @@ function GlassPoster() {
  * it continuously for the whole ~500vh Proof section. Pure CSS paints
  * instantly, no mount/compile latency at all.
  *
- * FOUR blurred, drifting, different-hued blobs — not GlassPoster's single
- * static gradient, and not just two accent/chalk blobs either (a first
- * pass at this used only those two and read as flat/washed-out next to
- * desktop's real multicolor refraction, reported directly as having lost
- * the one thing this page had going for it). The real WebGL shader this
- * replaces does a genuine multi-hue prism sweep (see
- * backgroundSceneMaterial.ts's own thematicColor) — this is that same
- * "scoped exception to the near-monochrome rule" (per that shader's own
- * comment), just approximated with plain color-mix blobs instead of a
- * per-pixel hue function. Each blob drifts on its own duration/delay/
- * direction so they never move in lockstep — reads as one continuously
- * shifting field of color, not four separate shapes taking turns.
+ * FOUR drifting, different-hued blobs — not GlassPoster's single static
+ * gradient, and not just two accent/chalk blobs either (a first pass at
+ * this used only those two and read as flat/washed-out next to desktop's
+ * real multicolor refraction, reported directly as having lost the one
+ * thing this page had going for it). The real WebGL shader this replaces
+ * does a genuine multi-hue prism sweep (see backgroundSceneMaterial.ts's
+ * own thematicColor) — this is that same "scoped exception to the
+ * near-monochrome rule" (per that shader's own comment), approximated
+ * with layered gradients instead of a per-pixel hue function. Each blob
+ * drifts on its own duration/direction so they never move in lockstep —
+ * reads as one continuously shifting field of color, not four separate
+ * shapes taking turns.
+ *
+ * RADIAL-GRADIENT falloff, NOT `filter: blur()` on a solid circle — the
+ * single most important detail in this component. An earlier version of
+ * exactly this backdrop used four large `blur-[75-85px]` circles, which
+ * is precisely the pattern WebKit bug 319187 documents as causing severe
+ * iOS rendering stalls with large blurred layers, and it reproduced on
+ * real hardware: iPhone 16 Pro Max (larger viewport + 120Hz ProMotion,
+ * so bigger blur surfaces AND twice the frames to rasterize them for)
+ * showed delayed/blank cards and heavy lag, while iPhone 12 Pro (60Hz,
+ * smaller viewport) and an Android/Chromium device were both fine on the
+ * same build. ImpactSection.tsx's own glow already documents this exact
+ * lesson for this exact codebase ("no filter rasterization cost at all —
+ * a real GPU tax on mobile, especially animated via scale/opacity every
+ * frame"); this component simply failed to follow it. Baking the falloff
+ * into gradient color stops is visually near-identical (a gaussian blur
+ * has no hard core either — hence the multi-stop taper rather than two
+ * distinct zones) at zero per-frame rasterization cost, which also means
+ * the cards' own backdrop-filter has a far cheaper backdrop to resample.
+ * Boxes are ~1.5x the old blurred circles' size because a blur visually
+ * spreads well past its own box while a gradient cannot.
+ *
  * transform+opacity only, compositor-only, genuinely free while
  * scrolling. motion-reduce disables all four loops (matches
  * ResolutionSection's own model-spin convention) — reducedMotion users
@@ -335,22 +356,35 @@ function MobileGlassBackdrop() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       <div
-        className="absolute left-1/4 top-1/3 h-[65vmin] w-[65vmin] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/30 blur-[85px] motion-reduce:animate-none animate-[proof-glass-drift_13s_ease-in-out_infinite]"
+        className="absolute left-1/4 top-1/3 h-[100vmin] w-[100vmin] -translate-x-1/2 -translate-y-1/2 rounded-full motion-reduce:animate-none animate-[proof-glass-drift_13s_ease-in-out_infinite]"
+        style={{
+          background:
+            "radial-gradient(circle, color-mix(in srgb, var(--color-accent) 30%, transparent) 0%, color-mix(in srgb, var(--color-accent) 25%, transparent) 12%, color-mix(in srgb, var(--color-accent) 18%, transparent) 22%, color-mix(in srgb, var(--color-accent) 11%, transparent) 32%, color-mix(in srgb, var(--color-accent) 6%, transparent) 42%, color-mix(in srgb, var(--color-accent) 2.5%, transparent) 52%, color-mix(in srgb, var(--color-accent) 0.8%, transparent) 64%, transparent 100%)",
+        }}
         aria-hidden="true"
       />
       <div
-        className="absolute left-[70%] top-[20%] h-[50vmin] w-[50vmin] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[80px] motion-reduce:animate-none animate-[proof-glass-drift_17s_ease-in-out_infinite]"
-        style={{ backgroundColor: "color-mix(in srgb, #4fd6ff 32%, transparent)" }}
+        className="absolute left-[70%] top-[20%] h-[78vmin] w-[78vmin] -translate-x-1/2 -translate-y-1/2 rounded-full motion-reduce:animate-none animate-[proof-glass-drift_17s_ease-in-out_infinite]"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(79,214,255,0.32) 0%, rgba(79,214,255,0.26) 12%, rgba(79,214,255,0.19) 22%, rgba(79,214,255,0.12) 32%, rgba(79,214,255,0.06) 42%, rgba(79,214,255,0.026) 52%, rgba(79,214,255,0.009) 64%, transparent 100%)",
+        }}
         aria-hidden="true"
       />
       <div
-        className="absolute left-[15%] top-[75%] h-[55vmin] w-[55vmin] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[85px] motion-reduce:animate-none animate-[proof-glass-drift_20s_ease-in-out_infinite_reverse]"
-        style={{ backgroundColor: "color-mix(in srgb, #ff5fd6 28%, transparent)" }}
+        className="absolute left-[15%] top-[75%] h-[85vmin] w-[85vmin] -translate-x-1/2 -translate-y-1/2 rounded-full motion-reduce:animate-none animate-[proof-glass-drift_20s_ease-in-out_infinite_reverse]"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(255,95,214,0.28) 0%, rgba(255,95,214,0.23) 12%, rgba(255,95,214,0.17) 22%, rgba(255,95,214,0.10) 32%, rgba(255,95,214,0.055) 42%, rgba(255,95,214,0.023) 52%, rgba(255,95,214,0.008) 64%, transparent 100%)",
+        }}
         aria-hidden="true"
       />
       <div
-        className="absolute left-[85%] top-[55%] h-[45vmin] w-[45vmin] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[75px] motion-reduce:animate-none animate-[proof-glass-drift_15s_ease-in-out_infinite]"
-        style={{ backgroundColor: "color-mix(in srgb, #ffd24f 30%, transparent)" }}
+        className="absolute left-[85%] top-[55%] h-[70vmin] w-[70vmin] -translate-x-1/2 -translate-y-1/2 rounded-full motion-reduce:animate-none animate-[proof-glass-drift_15s_ease-in-out_infinite]"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(255,210,79,0.30) 0%, rgba(255,210,79,0.245) 12%, rgba(255,210,79,0.18) 22%, rgba(255,210,79,0.11) 32%, rgba(255,210,79,0.058) 42%, rgba(255,210,79,0.024) 52%, rgba(255,210,79,0.008) 64%, transparent 100%)",
+        }}
         aria-hidden="true"
       />
     </div>

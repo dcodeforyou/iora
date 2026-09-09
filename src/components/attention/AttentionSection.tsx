@@ -822,7 +822,39 @@ export default function AttentionSection() {
         className="invisible pointer-events-none fixed inset-0 z-40 flex items-center justify-center overflow-hidden bg-ink [transform:translateZ(0)]"
         style={{ maskImage: "radial-gradient(circle 0px at 50% 50%, #000 100%, transparent 100%)", WebkitMaskImage: "radial-gradient(circle 0px at 50% 50%, #000 100%, transparent 100%)" }}
       >
-        <div className="pointer-events-none absolute h-[60vmin] w-[60vmin] scale-125 rounded-full bg-accent blur-[100px]" />
+        {/* Radial-gradient falloff, not `filter: blur()` on a solid circle
+            — this one is the single closest match in the codebase to
+            WebKit bug 319187 ("severe initial rendering slowdown with
+            LARGE FIXED elements using CSS filter: blur()"): it's a 60vmin
+            blurred circle inside this very `position: fixed` full-screen
+            overlay. Reproduced on real hardware as the Attention section
+            failing to appear on iPhone 16 Pro Max while iPhone 12 Pro and
+            Android were fine on the same build. Mirrors the treatment
+            ImpactSection's own glow already uses (and documents) — this
+            overlay is a visual clone of that section's content, so the two
+            now match in rendering strategy as well as appearance. Box
+            enlarged and `scale-125` dropped (folded into the size) since a
+            gradient can't spread past its own box the way a blur does. */}
+        {/* Gradient copied VERBATIM from ImpactSection's own glow (box
+            size, scale-125 and all eleven stops) — this overlay is a
+            deliberate visual clone of that section's content, so its glow
+            should be literally the same element, not a re-derived
+            approximation. A first attempt at this used a shorter taper
+            (content out to ~74%, then transparent) and immediately hit the
+            exact failure ImpactSection's own comment documents: the eye
+            picks up where "a little color" meets "definitely none" against
+            near-black, so it read as a hard-edged circle. That comment's
+            fix is what's reproduced here — all the real color compressed
+            into the first half of the radius, then a very long, very faint
+            tail out to 100% so the transparent endpoint sits far past
+            where anyone is looking. */}
+        <div
+          className="pointer-events-none absolute h-[120vmin] w-[120vmin] scale-125 rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle, color-mix(in srgb, var(--color-accent) 95%, transparent) 0%, color-mix(in srgb, var(--color-accent) 91%, transparent) 5%, color-mix(in srgb, var(--color-accent) 81%, transparent) 10%, color-mix(in srgb, var(--color-accent) 66%, transparent) 15%, color-mix(in srgb, var(--color-accent) 49%, transparent) 20%, color-mix(in srgb, var(--color-accent) 34%, transparent) 25%, color-mix(in srgb, var(--color-accent) 22%, transparent) 30%, color-mix(in srgb, var(--color-accent) 13%, transparent) 35%, color-mix(in srgb, var(--color-accent) 7%, transparent) 40%, color-mix(in srgb, var(--color-accent) 3.5%, transparent) 45%, color-mix(in srgb, var(--color-accent) 1.6%, transparent) 50%, transparent 100%)",
+          }}
+        />
         <div className="relative z-10 flex flex-col items-center gap-4 px-6 text-center">
           <p className="font-mono-kicker text-xs uppercase tracking-[0.3em] text-chalk-muted">[ impact ]</p>
           <h2 className="max-w-3xl font-display text-4xl font-semibold leading-tight text-chalk sm:text-5xl md:text-6xl">
