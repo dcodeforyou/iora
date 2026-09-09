@@ -14,9 +14,15 @@
   --color-accent: #ff4e32;     /* the ONE splat accent — earned at beat 5, not before */
   --color-accent-soft: #ff4e3226;
 
-  --font-display: var(--font-geist-sans);
-  --font-mono-kicker: var(--font-space-mono);
-  --font-body: var(--font-inter);
+  /* Two faces, three roles — display and body deliberately share ONE
+     family (see layout.tsx for the reasoning). Keeping --font-display and
+     --font-body as separate tokens even though they currently resolve to
+     the same face is intentional: every call site already expresses which
+     ROLE it means, so the two can diverge again later without touching
+     79 usages. */
+  --font-display: var(--font-instrument-sans);
+  --font-mono-kicker: var(--font-geist-mono);
+  --font-body: var(--font-instrument-sans);
 }
 
 @theme inline {
@@ -188,6 +194,24 @@ html.custom-cursor-active * {
    Pure CSS, paints instantly, transform+opacity only (compositor-only,
    no layout/paint cost) — the same "slow drift" character a soft ambient
    light would have, not a bouncy/attention-seeking loop. */
+/* Mobile Ecosystem ring (ProofGlassCanvas's MobileGlassBackdrop) — the
+   circular rainbow form desktop gets from real WebGL refraction,
+   approximated for phones. Rotation ONLY: the ring's pixels are a static
+   conic-gradient rasterized once, so spinning it is a pure compositor
+   transform with nothing to repaint per frame. Deliberately NOT a
+   filter/blur/background-position animation, any of which would force a
+   re-raster every frame and walk straight back into the iOS stall this
+   whole section was just rescued from. Slow (40s) so it reads as ambient
+   drift rather than a spinner. */
+@keyframes proof-ring-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
 @keyframes proof-glass-drift {
   0%,
   100% {

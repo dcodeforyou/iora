@@ -355,6 +355,42 @@ function GlassPoster() {
 function MobileGlassBackdrop() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      {/* The circular rainbow RING — desktop's most recognisable feature in
+          this section, and the thing mobile visibly lost when the WebGL
+          canvas was removed. Rebuilt with no WebGL and, critically, no
+          `filter: blur()`:
+
+          - a `conic-gradient` supplies the hue sweep around the circle,
+            the same full-spectrum move the real shader makes (see
+            backgroundSceneMaterial.ts's thematicColor), including the
+            brand accent so it stays on-palette rather than arbitrary;
+          - a radial-gradient `mask-image` carves that disc into an
+            annulus, with the SOFT EDGES coming from the mask's own stops
+            rather than a blur filter — the identical technique used for
+            the glow blobs below, and the reason this can exist at all on
+            a device that stalled on large blurred layers;
+          - `mask-image` specifically (not `clip-path`) also follows the
+            precedent AttentionSection documents for its own overlay: it
+            rasterizes through a different path and sidesteps a real
+            Chromium clip-path compositing bug.
+
+          Only `transform: rotate()` animates, so the ring is rasterized
+          once and then spun as a cached layer — genuinely free per frame,
+          unlike anything that would re-blur or re-generate the gradient.
+          The -webkit- prefix is required for iOS Safari. */}
+      <div
+        className="absolute left-1/2 top-1/2 h-[112vmin] w-[112vmin] rounded-full motion-reduce:animate-none animate-[proof-ring-spin_40s_linear_infinite]"
+        style={{
+          transform: "translate(-50%, -50%)",
+          background:
+            "conic-gradient(from 0deg, rgba(255,78,50,0.55), rgba(255,210,79,0.5), rgba(120,230,160,0.45), rgba(79,214,255,0.5), rgba(150,140,255,0.5), rgba(255,95,214,0.5), rgba(244,244,242,0.42), rgba(255,78,50,0.55))",
+          maskImage:
+            "radial-gradient(closest-side, transparent 56%, rgba(0,0,0,0.35) 64%, #000 74%, #000 84%, rgba(0,0,0,0.3) 92%, transparent 100%)",
+          WebkitMaskImage:
+            "radial-gradient(closest-side, transparent 56%, rgba(0,0,0,0.35) 64%, #000 74%, #000 84%, rgba(0,0,0,0.3) 92%, transparent 100%)",
+        }}
+        aria-hidden="true"
+      />
       <div
         className="absolute left-1/4 top-1/3 h-[100vmin] w-[100vmin] -translate-x-1/2 -translate-y-1/2 rounded-full motion-reduce:animate-none animate-[proof-glass-drift_13s_ease-in-out_infinite]"
         style={{

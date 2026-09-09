@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { Space_Mono, Inter } from "next/font/google";
-import { GeistSans } from "geist/font/sans";
+import { Instrument_Sans } from "next/font/google";
+import { GeistMono } from "geist/font/mono";
 import SmoothScroll from "@/lib/scroll/SmoothScroll";
 import CrtPowerOn from "@/components/site/CrtPowerOn";
 import CustomCursor from "@/components/site/CustomCursor";
@@ -9,26 +9,37 @@ import WhatsAppButton from "@/components/site/WhatsAppButton";
 import VideoDebugOverlay from "@/components/site/VideoDebugOverlay";
 import "./globals.css";
 
-// Display: big statements, the shatter-revealed wordmark. Geist (Vercel,
-// SIL Open Font License — fully open, no commercial-license question at
-// all) instead of Bricolage Grotesque, which became the default "give it
-// personality" font of nearly every AI site generator through 2024-2025.
-const geistSans = GeistSans;
-
-// Kicker/mono: section eyebrows, stats, the CRT/glitch register. Doing the
-// same positioning work Azeret Mono does on notionlabs.in — technical,
-// internet-native — without literally reusing their font.
-const spaceMono = Space_Mono({
-  variable: "--font-space-mono",
-  weight: ["400", "700"],
+// TWO faces total, doing every job on the site — down from three (Geist
+// display / Inter body / Space Mono kicker). The previous trio's real
+// problem wasn't any individual choice, it was that Geist and Inter are
+// both clean neo-grotesks: two fonts spending their character budget on
+// nearly the same voice, so the site read as generically well-set rather
+// than authored. Collapsing display+body onto ONE face and letting the
+// mono carry all the interface/label work gives a single typographic
+// fingerprint, with hierarchy coming from proportion and weight instead
+// of from family-switching.
+//
+// Instrument Sans (SIL Open Font License) for both display and body — a
+// variable face with slightly more editorial personality in its
+// letterforms than Geist/Inter while staying quiet enough to set long
+// copy. Loaded as a variable font (no explicit `weight`) so the full
+// 400-700 axis is available: the display sizes lean on 600, section
+// headings sit just under it, and body stays at 400, which is the kind
+// of fine-grained weight separation a static two-weight setup can't do.
+const instrumentSans = Instrument_Sans({
+  variable: "--font-instrument-sans",
   subsets: ["latin"],
 });
 
-// Body: stays out of the way.
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
+// Kicker/mono: section eyebrows ("[ THE PROBLEM ]"), nav labels, the
+// numbered ecosystem card titles, the CRT/glitch register. Geist Mono
+// rather than Space Mono — Space Mono's quirkier letterforms read as a
+// third distinct voice, whereas Geist Mono is a true companion to a
+// neutral sans, so the mono treatment becomes a recognisable interface
+// language across the site instead of decorative small tracked type.
+// Already vendored (the `geist` package is a dependency), so this costs
+// no extra network request beyond the subset actually used.
+const geistMono = GeistMono;
 
 const SITE_URL = "https://iorastudio.vercel.app";
 const SITE_TITLE = "ïora — Creative Growth Ecosystems";
@@ -63,7 +74,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${spaceMono.variable} ${inter.variable} h-full antialiased`}
+      className={`${instrumentSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
         {/* Runs synchronously as the browser parses <head>, before Lenis,

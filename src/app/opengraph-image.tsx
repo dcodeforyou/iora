@@ -21,11 +21,21 @@ const MARK_DOTS = [
   "M132 52 H208 Q214 52 214 58 V130 Q214 136 208 136 H132 Q126 136 126 130 V58 Q126 52 132 52 Z",
 ];
 
+// Instrument Sans, vendored into the repo as static TTFs rather than read
+// out of node_modules like the Geist files this replaces. ImageResponse
+// needs real font BUFFERS at render time, and next/font/google (which is
+// how the live site loads this same family — see layout.tsx) deliberately
+// exposes only a CSS class, never a file path, so there is nothing to
+// point `readFile` at. Vendoring is the supported way to give the OG
+// renderer the same face the site itself uses; without it this card would
+// silently keep rendering in a different typeface than every page it
+// links to.
 export default async function Image() {
-  const [geistRegular, geistBold, geistBoldItalic] = await Promise.all([
-    readFile(join(process.cwd(), "node_modules/geist/dist/fonts/geist-sans/Geist-Regular.ttf")),
-    readFile(join(process.cwd(), "node_modules/geist/dist/fonts/geist-sans/Geist-Bold.ttf")),
-    readFile(join(process.cwd(), "node_modules/geist/dist/fonts/geist-sans/Geist-BoldItalic.ttf")),
+  const fontDir = join(process.cwd(), "src/fonts/instrument-sans");
+  const [sansRegular, sansBold, sansBoldItalic] = await Promise.all([
+    readFile(join(fontDir, "InstrumentSans-400.ttf")),
+    readFile(join(fontDir, "InstrumentSans-700.ttf")),
+    readFile(join(fontDir, "InstrumentSans-700Italic.ttf")),
   ]);
 
   return new ImageResponse(
@@ -113,7 +123,7 @@ export default async function Image() {
           <div
             style={{
               display: "flex",
-              fontFamily: "Geist",
+              fontFamily: "Instrument Sans",
               fontWeight: 400,
               fontSize: 26,
               color: "rgba(11,12,16,0.55)",
@@ -127,7 +137,7 @@ export default async function Image() {
               display: "flex",
               flexWrap: "wrap",
               justifyContent: "center",
-              fontFamily: "Geist",
+              fontFamily: "Instrument Sans",
               fontWeight: 700,
               fontSize: 64,
               lineHeight: 1.08,
@@ -146,9 +156,9 @@ export default async function Image() {
     {
       ...size,
       fonts: [
-        { name: "Geist", data: geistRegular, style: "normal", weight: 400 },
-        { name: "Geist", data: geistBold, style: "normal", weight: 700 },
-        { name: "Geist", data: geistBoldItalic, style: "italic", weight: 700 },
+        { name: "Instrument Sans", data: sansRegular, style: "normal", weight: 400 },
+        { name: "Instrument Sans", data: sansBold, style: "normal", weight: 700 },
+        { name: "Instrument Sans", data: sansBoldItalic, style: "italic", weight: 700 },
       ],
     },
   );
