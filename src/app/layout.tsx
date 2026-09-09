@@ -6,6 +6,7 @@ import CrtPowerOn from "@/components/site/CrtPowerOn";
 import CustomCursor from "@/components/site/CustomCursor";
 import SoundToggle from "@/components/site/SoundToggle";
 import WhatsAppButton from "@/components/site/WhatsAppButton";
+import VideoDebugOverlay from "@/components/site/VideoDebugOverlay";
 import "./globals.css";
 
 // Display: big statements, the shatter-revealed wordmark. Geist (Vercel,
@@ -109,6 +110,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <CustomCursor />
         <SoundToggle />
         <WhatsAppButton />
+        {/* Renders nothing at all unless the URL carries ?debug=video —
+            see the component's own doc comment. Kept mounted here rather
+            than behind a route so it can observe the real homepage in its
+            real state on a real device. */}
+        <VideoDebugOverlay />
         <SmoothScroll>{children}</SmoothScroll>
       </body>
     </html>

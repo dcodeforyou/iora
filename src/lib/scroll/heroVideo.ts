@@ -277,6 +277,7 @@ export function playHeroVideo(): void {
     });
   }
 
+  hasStartedPlayback = true;
   video.currentTime = 0;
   void video.play().catch(() => {
     // Autoplay rejection shouldn't be possible here (this is only ever
@@ -285,6 +286,13 @@ export function playHeroVideo(): void {
     // abort the rest of the entry sequence (scroll unlock, shard shatter).
   });
 }
+
+// Set once, by playHeroVideo above — the entry click is the only thing
+// that may ever start this video. setHeroVideoFocus below reads it so its
+// own resume path can never be what starts playback: that function runs on
+// Hero's mount too (isVisible begins true), long before the click, and the
+// CRT static reveal depends on the video staying stopped until then.
+let hasStartedPlayback = false;
 
 let volumeTween: gsap.core.Tween | null = null;
 
@@ -302,6 +310,30 @@ let volumeTween: gsap.core.Tween | null = null;
 export function setHeroVideoFocus(inView: boolean): void {
   const video = heroVideoState.el;
   if (!video) return;
+
+  // Genuinely PAUSE the decode once Hero is fully off-screen, not just
+  // silence it. This function used to only touch volume/mute, which meant
+  // a 1080x1920 video kept decoding, on loop, forever — for the whole rest
+  // of the session — behind a 1px, opacity-0, off-screen element nobody
+  // can see, including while the user is all the way down at the footer.
+  //
+  // Past being plainly wasteful (battery/CPU/GPU), iOS caps how much video
+  // can be decoding simultaneously and newer iOS is stricter about media
+  // resource management. That directly implicates the reported bug —
+  // Resolution's clip (also audio-track-less, see that file) refusing to
+  // play on an iPhone 16 Pro Max while an iPhone 12 Pro and an Android
+  // device were fine: a permanently-running hero decode is exactly the
+  // kind of thing that can starve a second video of what it needs to
+  // start, and the newer/larger device is the one most likely to be
+  // running a stricter iOS.
+  if (hasStartedPlayback) {
+    if (inView) {
+      if (video.paused) void video.play().catch(() => {});
+    } else if (!video.paused) {
+      video.pause();
+    }
+  }
+
   volumeTween?.kill();
   volumeTween = gsap.to(video, {
     volume: inView ? HERO_VIDEO_VOLUME_IN_VIEW : HERO_VIDEO_VOLUME_OUT_OF_VIEW,
