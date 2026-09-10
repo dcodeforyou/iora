@@ -1,0 +1,168 @@
+/*
+  The nav's WORK -> PROOF -> WORK letter morph.
+
+  Lives in CSS rather than GSAP on purpose: this is four independent
+  per-character transitions with no scroll coupling and no timeline to
+  coordinate with. Every other animation on this site that reaches for
+  GSAP does so because it shares the master scroll timeline; this one
+  does not, and a keyframe pair is both cheaper and impossible to leave
+  running after unmount.
+*/
+
+.workProofMorph {
+  /* A fixed five-cell grid is what stops the nav reflowing between a
+     four-letter word and a five-letter one. The cell is 1ch PLUS the
+     nav's own 0.2em tracking, because tracking inside a fixed cell would
+     offset the glyph instead of spacing it — the space has to BE the
+     cell. */
+  --wp-cell: calc(1ch + 0.2em);
+  --wp-stagger: 52ms;
+  --wp-char: 110ms;
+
+  display: inline-grid;
+  grid-template-columns: repeat(5, var(--wp-cell));
+  justify-items: start;
+  /* Tracking is expressed by the cell width above; leaving it on as well
+     would double it. */
+  letter-spacing: 0;
+  position: relative;
+  vertical-align: baseline;
+  /* WORK fills four of five cells, so on its own it sits half a cell
+     left of the slot's true centre. A transform shifts the painted word
+     without touching layout, so the nav slot's width and position stay
+     frozen either way. Transitioned over one character's worth of time
+     so the word settles with the letters rather than after them.
+
+     This deliberately sits on the grid itself. An inner wrapper is the
+     obvious place for it, but a wrapper that does not disturb the grid
+     has to be `display: contents` — and a contents box generates no box
+     at all, so it cannot be transformed. Measured: the rule silently did
+     nothing there. */
+  transform: translateX(0);
+  transition: transform var(--wp-char) cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.workProofMorph[data-word="work"] {
+  transform: translateX(calc(var(--wp-cell) / 2));
+}
+
+.workProofMorph__slot {
+  position: relative;
+  display: block;
+  width: var(--wp-cell);
+  /* Both glyph layers are absolutely positioned, so the slot needs its
+     own height from somewhere. */
+  height: 1em;
+  overflow: visible;
+}
+
+.workProofMorph__char {
+  position: absolute;
+  inset: 0;
+  display: block;
+  will-change: transform, opacity, filter;
+}
+
+/* The incoming glyph rises from below; the outgoing one leaves upward.
+   Both carry a 1.5px blur that resolves to 0 — that is what reads as a
+   "reveal" rather than a slide. No bounce, per the brief. */
+.workProofMorph__char--in {
+  animation: workProofIn var(--wp-char) cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation-delay: var(--wp-delay, 0ms);
+}
+
+.workProofMorph__char--out {
+  animation: workProofOut var(--wp-char) cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation-delay: var(--wp-delay, 0ms);
+}
+
+@keyframes workProofIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+    filter: blur(1.5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes workProofOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+    filter: blur(1.5px);
+  }
+}
+
+/* The coral hairline under PROOF. A 1px rule, not a pill — the BOOK A
+   CALL button stays the only bordered thing in the nav. */
+.workProofMorph__rule {
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  height: 1px;
+  width: 65%;
+  transform: translateX(-50%) scaleX(0);
+  transform-origin: center;
+  background: var(--color-accent);
+  opacity: 0;
+  transition:
+    transform 210ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 210ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  pointer-events: none;
+}
+
+.workProofMorph[data-word="proof"] .workProofMorph__rule {
+  transform: translateX(-50%) scaleX(1);
+  opacity: 0.75;
+}
+
+/* While the word reads PROOF the text lifts slightly out of the nav's
+   resting chalk. Brightening rather than colouring: the coral is spent
+   on the hairline, and two coral signals on one four-letter word is the
+   "glowing pill" the brief rules out. */
+.workProofMorph[data-word="proof"] {
+  color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* No per-character travel. The word still changes — the reveal is the
+     point — but as a plain crossfade with no movement or blur. */
+  .workProofMorph__char--in,
+  .workProofMorph__char--out {
+    animation-duration: 140ms;
+    animation-delay: 0ms;
+  }
+
+  @keyframes workProofIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes workProofOut {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  .workProofMorph,
+  .workProofMorph[data-word="work"] {
+    transform: none;
+    transition: none;
+  }
+}
