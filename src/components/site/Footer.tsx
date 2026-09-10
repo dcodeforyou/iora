@@ -132,10 +132,13 @@ export default function Footer() {
             >
               Work
             </Link>
+            {/* /book, like every other Book a call on the site — see
+                Nav.tsx. Left as a plain <a> rather than converted to
+                <Link>: this is the footer menu, where the sibling links
+                already mix both, and swapping the element would be a
+                change to working markup for no behavioural gain. */}
             <a
-              href="https://calendly.com/dcodeforyou"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/book"
               className="text-sm text-ink/80 transition-[color,letter-spacing] duration-300 ease-out hover:tracking-[0.05em] hover:text-accent"
             >
               Book a call

@@ -1,0 +1,529 @@
+/*
+  /book — the two-step Book a Call experience.
+
+  Coral is expressed through the site's own --color-accent token rather
+  than the #FF5A3C literals the brief quotes. The two differ by a couple
+  of points of hue and the token is what every other coral on the site
+  resolves to; hard-coding a second, slightly different coral onto one
+  page is how a brand starts drifting one screen at a time.
+*/
+
+.bookPage {
+  position: relative;
+  min-height: 100svh;
+  overflow: hidden;
+  background: #07080b;
+}
+
+/* The supplied plate. Deliberately a background rather than an <img>:
+   it is decoration with no informational content, and `cover` on a
+   pseudo-element cannot be dragged, selected or announced. */
+.bookPage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(to bottom, rgba(7, 8, 11, 0.1), rgba(7, 8, 11, 0.22)),
+    url("/media/contact/contact-bg-mobile.webp") center center / cover no-repeat;
+}
+
+/* Both orientations are behind a media query, not just the mobile one.
+   A browser only fetches a background image whose rule currently
+   matches, so this is what makes the brief's "do not preload both
+   full-size assets" true rather than aspirational — an unguarded
+   desktop rule would pull 1920x1080 down onto every phone. */
+@media (min-width: 768px) {
+  .bookPage::before {
+    background:
+      linear-gradient(to bottom, rgba(7, 8, 11, 0.1), rgba(7, 8, 11, 0.22)),
+      url("/media/contact/contact-bg-desktop.webp") center center / cover no-repeat;
+  }
+}
+
+/* Warm ambient glow, upper-right, plus a gentle darkening under the
+   middle of the frame where the form actually sits. The image itself
+   never pans or zooms — that is what protects legibility. */
+.bookPage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 36% 32% at 82% 32%,
+      color-mix(in srgb, var(--color-accent) 11%, transparent),
+      transparent 72%
+    ),
+    radial-gradient(ellipse 58% 46% at 50% 48%, rgba(7, 8, 11, 0.16), transparent 70%);
+  animation: bookGlowBreath 14s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+}
+
+@keyframes bookGlowBreath {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.018);
+  }
+}
+
+.bookPage__content {
+  position: relative;
+  z-index: 2;
+}
+
+/* ── Dust ─────────────────────────────────────────────────────────
+   Eight points on desktop, four on mobile, of which only a few ever
+   twinkle. Positions are fixed rather than random so the composition is
+   the same every load and can be judged. */
+.bookDust {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.bookDust span {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #ffd7c5;
+  opacity: 0.24;
+}
+
+.bookDust span[data-twinkle="1"] {
+  animation: bookDustTwinkle var(--dust-dur, 7s) ease-in-out var(--dust-delay, 0s) infinite;
+}
+
+@keyframes bookDustTwinkle {
+  0%,
+  100% {
+    opacity: 0.1;
+  }
+  50% {
+    opacity: 0.42;
+  }
+}
+
+@media (max-width: 767px) {
+  /* Four of the eight, so the mobile plate stays as calm as the brief
+     asks without needing a second set of markup. */
+  .bookDust span:nth-child(n + 5) {
+    display: none;
+  }
+}
+
+/* ── The focus wheel ──────────────────────────────────────────────── */
+
+.focusWheel {
+  --wheel-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --wheel-move: 400ms;
+  /* Gaps are the SUM of the two half-heights either side plus real
+     breathing room, not round numbers. An 80px gap under a 100px card
+     puts the neighbour's top edge 18px inside the active card — the
+     rail then reads as damage rather than depth, and the active card's
+     coral edge is the thing being covered. Worked out at the scaled
+     heights each tier actually renders at:
+       d0 112         -> half 56
+       d1 112 x .96   -> half 53.8   gap-1 = 56 + 53.8 + 10
+       d2 112 x .90   -> half 50.4   gap-2 = gap-1 + 53.8 + 50.4 + 8 = 232
+
+     112 is the top of the brief's 96-112px range rather than the
+     middle, because the interest field has to hold four chips and a
+     label inside the same fixed card as every other field. A card that
+     changes height for one field would drag its neighbours around. */
+  --card-h: 112px;
+  --gap-1: 120px;
+  --gap-2: 232px;
+  --gap-3: 232px;
+
+  position: relative;
+  width: min(760px, 48vw);
+  /* Two rails either side, which is what fits without the panel
+     dominating the page. The brief describes a third tier at 5-10%
+     opacity and then adds that anything farther can be hidden — at that
+     opacity on this background the third rail costs 180px of height to
+     render something effectively invisible, so it is hidden.
+
+     Fixed height, so the panel never resizes as the active field
+     changes — a wheel that changes height is a wheel that pushes the
+     page around under the person filling it in.
+
+     On the FIRST field the upper half is necessarily empty: there are
+     no previous fields to put there. That is the geometry doing its
+     job rather than a gap to design away — the space fills as you go,
+     which is exactly the progress signal the rails exist to give. It is
+     kept as tight as two rails allow so the emptiness never dominates. */
+  height: 570px;
+}
+
+.focusWheel__card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  height: var(--card-h);
+  border-radius: 22px;
+  padding: 16px 24px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(12, 12, 15, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  color: rgba(243, 241, 237, 0.3);
+  /* Every distance tier below sets these three; declaring them here
+     means a card can never inherit a stale value mid-transition. */
+  --card-w: 100%;
+  --card-scale: 1;
+  --card-y: 0px;
+  width: var(--card-w);
+  transform: translate(-50%, -50%) translateY(var(--card-y)) scale(var(--card-scale));
+  transition:
+    width var(--wheel-move) var(--wheel-ease),
+    transform var(--wheel-move) var(--wheel-ease),
+    opacity var(--wheel-move) var(--wheel-ease),
+    background-color var(--wheel-move) var(--wheel-ease),
+    border-color var(--wheel-move) var(--wheel-ease),
+    box-shadow var(--wheel-move) var(--wheel-ease);
+  will-change: transform, opacity, width;
+}
+
+.focusWheel__card[data-distance="0"] {
+  --card-w: 100%;
+  --card-scale: 1;
+  opacity: 1;
+  background: rgba(8, 8, 11, 0.76);
+  border-color: color-mix(in srgb, var(--color-accent) 92%, transparent);
+  /* Two soft falloffs rather than one tight ring — a single bright ring
+     at this radius is the neon tube the brief rules out. */
+  box-shadow:
+    0 0 28px color-mix(in srgb, var(--color-accent) 14%, transparent),
+    0 0 70px color-mix(in srgb, var(--color-accent) 5.5%, transparent),
+    inset 0 1px 0 rgba(255, 225, 210, 0.1);
+  color: var(--color-chalk);
+  z-index: 4;
+}
+
+.focusWheel__card[data-distance="1"] {
+  --card-w: 92%;
+  --card-scale: 0.96;
+  opacity: 0.34;
+  z-index: 3;
+}
+
+.focusWheel__card[data-distance="2"] {
+  --card-w: 82%;
+  --card-scale: 0.9;
+  opacity: 0.17;
+  z-index: 2;
+}
+
+/* Beyond two rails a card is not dimmed, it is gone — and pointer-events
+   go with it, so an invisible card can never eat a click meant for the
+   page. */
+.focusWheel__card[data-distance="3"],
+.focusWheel__card[data-distance="4"] {
+  --card-w: 68%;
+  --card-scale: 0.82;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.focusWheel__label {
+  font-family: var(--font-mono-kicker);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.48;
+  line-height: 1;
+}
+
+.focusWheel__card[data-distance="0"] .focusWheel__label {
+  opacity: 0.62;
+}
+
+/* The optional note for the chips field rides on the label line. As its
+   own row underneath it pushes four chips past the card's bottom edge —
+   which is exactly what it looked like: a caption escaping its card. */
+.focusWheel__labelHint {
+  text-transform: none;
+  letter-spacing: 0.1em;
+  opacity: 0.7;
+}
+
+.focusWheel__required {
+  color: var(--color-accent);
+  margin-left: 0.4em;
+}
+
+/* The site's primary sans, not the mono kicker — long free text in a
+   monospace face is a form that is unpleasant to actually fill in. */
+.focusWheel__input,
+.focusWheel__textarea {
+  font-family: var(--font-body);
+  font-size: 20px;
+  line-height: 1.35;
+  color: var(--color-chalk);
+  background: transparent;
+  border: 0;
+  outline: 0;
+  width: 100%;
+  padding: 0;
+  resize: none;
+}
+
+.focusWheel__textarea {
+  font-size: 17px;
+  height: 46px;
+}
+
+.focusWheel__input::placeholder,
+.focusWheel__textarea::placeholder {
+  color: rgba(243, 241, 237, 0.26);
+}
+
+.focusWheel__helper {
+  font-family: var(--font-mono-kicker);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(243, 241, 237, 0.34);
+  line-height: 1;
+}
+
+/* An inactive card shows its label and its answer, never a live input —
+   a rail that can be typed into is not a rail, it is a second focus. */
+.focusWheel__preview {
+  font-family: var(--font-body);
+  font-size: 18px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Interest chips (§8) ──────────────────────────────────────────── */
+
+.focusWheel__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Sized so all four fit one row inside the narrowest desktop wheel
+   (min(760px, 48vw) less 48px of padding). They wrap to two rows on a
+   phone, which the card height above already accounts for. */
+.focusWheel__chip {
+  font-family: var(--font-mono-kicker);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(243, 241, 237, 0.62);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    border-color 200ms var(--wheel-ease),
+    color 200ms var(--wheel-ease),
+    background-color 200ms var(--wheel-ease);
+  white-space: nowrap;
+}
+
+.focusWheel__chip:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--color-chalk);
+}
+
+.focusWheel__chip[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--color-accent) 70%, transparent);
+  color: var(--color-chalk);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+/* ── Wheel affordances ────────────────────────────────────────────── */
+
+/* Anchored to the wheel's own top and bottom edges rather than stacked
+   above and below it. As siblings in the column they cost 84px of page
+   height for two 26px buttons, and that height was pushing the left-hand
+   copy column down into the site-wide Sound toggle. Inside the wheel they
+   also sit where the mockup puts them: on the panel, not around it. */
+.focusWheel__nudge {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  height: 26px;
+  width: 26px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(243, 241, 237, 0.5);
+  background: rgba(8, 8, 11, 0.5);
+  transition:
+    border-color 200ms var(--wheel-ease),
+    color 200ms var(--wheel-ease);
+}
+
+.focusWheel__nudge--up {
+  top: 0;
+}
+
+.focusWheel__nudge--down {
+  bottom: 0;
+}
+
+.focusWheel__nudge:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--color-accent) 60%, transparent);
+  color: var(--color-chalk);
+}
+
+.focusWheel__nudge:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+/* ── Error ────────────────────────────────────────────────────────── */
+
+.focusWheel__card[data-invalid="true"] {
+  border-color: color-mix(in srgb, var(--color-accent) 92%, transparent);
+}
+
+.focusWheel__error {
+  font-family: var(--font-mono-kicker);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  line-height: 1;
+}
+
+/* ── Step 02 shell ────────────────────────────────────────────────── */
+
+.bookSchedule {
+  width: min(760px, 92vw);
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(8, 8, 11, 0.76);
+  box-shadow:
+    0 0 40px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 225, 210, 0.07);
+  overflow: hidden;
+}
+
+/* Calendly renders inside an iframe, so this shell is the only part of
+   the scheduler this site can style. Deep-styling the calendar itself
+   would need the Scheduling API and a paid plan — see the note in
+   ScheduleStep.tsx. */
+.bookSchedule__embed {
+  min-height: 640px;
+  width: 100%;
+}
+
+@media (max-width: 767px) {
+  .bookSchedule__embed {
+    min-height: 900px;
+  }
+}
+
+/* ── Responsive (§35) ─────────────────────────────────────────────── */
+
+/* Tablet: the copy column narrows and the wheel stays dominant. */
+@media (max-width: 1199px) {
+  .focusWheel {
+    width: min(620px, 88vw);
+  }
+}
+
+/* Mobile: the brief is explicit that the desktop wheel must not simply
+   be shrunk. Same concept, simpler geometry — one rail either side
+   instead of three, tighter spacing, and a card wide enough to type in. */
+@media (max-width: 767px) {
+  .focusWheel {
+    /* The card is TALLER here, not shorter. Four chips cannot sit on
+       one row at phone width, so the interest field always needs two —
+       and shrinking the chips to buy that room would leave 20px tap
+       targets, which is the wrong trade on the only device where
+       everything is a tap. Sized for label + two chip rows:
+         11 + 6 + (31 x 2 + 6) = 85, + 30 padding and border = 115 -> 120
+       (31 is the MEASURED chip height at the padding below, not the
+       padding plus font size — the line box adds ~17px of its own.)
+       Gaps follow from that:
+         d0 120       -> half 60
+         d1 120 x .96 -> half 57.6   gap-1 = 60 + 57.6 + 8   = 126
+         d2 120 x .90 -> half 54     gap-2 = 126 + 57.6 + 54 + 6 = 244 */
+    --card-h: 120px;
+    --gap-1: 126px;
+    --gap-2: 244px;
+    --gap-3: 244px;
+    width: calc(100vw - 32px);
+    height: 600px;
+  }
+
+  .focusWheel__card {
+    border-radius: 18px;
+    padding: 14px 18px;
+  }
+
+  .focusWheel__card[data-distance="1"] {
+    --card-w: 91%;
+    opacity: 0.28;
+  }
+
+  .focusWheel__card[data-distance="2"] {
+    --card-w: 80%;
+    opacity: 0.13;
+  }
+
+  .focusWheel__chip {
+    /* Bigger type than desktop, less vertical padding. Phone chips have
+       to be readable and tappable, but two rows of them plus a label
+       have to fit the card above — 9px of padding measured 35px tall
+       and pushed the second row past the card's edge. Horizontally
+       these stay 100-160px wide, so the touch area is generous even at
+       31px tall. */
+    font-size: 10px;
+    padding: 7px 12px;
+  }
+
+  .focusWheel__input {
+    /* 16px is also the threshold below which iOS Safari zooms the
+       viewport on focus, which would break the whole layout mid-form. */
+    font-size: 17px;
+  }
+
+  .focusWheel__textarea {
+    font-size: 16px;
+    height: 40px;
+  }
+
+  .focusWheel__preview {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bookPage::after {
+    animation: none;
+  }
+
+  .bookDust span[data-twinkle="1"] {
+    animation: none;
+  }
+
+  .focusWheel {
+    --wheel-move: 1ms;
+  }
+}

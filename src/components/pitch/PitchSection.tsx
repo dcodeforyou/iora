@@ -887,11 +887,12 @@ export default function PitchSection() {
           for qualified enquiries, bookings or sales. You&apos;ll know what we&apos;re
           delivering, when it goes live and how we&apos;ll measure progress.
         </p>
+        {/* /book rather than Calendly directly — see Nav.tsx. Left as a
+            plain <a> so this element, its ref and the GSAP timeline
+            reading it are untouched; only the destination changed. */}
         <a
           ref={ctaRef}
-          href="https://calendly.com/dcodeforyou"
-          target="_blank"
-          rel="noopener noreferrer"
+          href="/book"
           className="relative mt-4 rounded-full bg-accent px-10 py-5 font-mono-kicker text-sm uppercase tracking-[0.2em] text-ink transition-transform hover:scale-105"
         >
           Book a call
@@ -973,9 +974,7 @@ export default function PitchSection() {
             delivering, when it goes live and how we&apos;ll measure progress.
           </p>
           <a
-            href="https://calendly.com/dcodeforyou"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/book"
             tabIndex={-1}
             className="relative mt-4 rounded-full bg-ink px-10 py-5 font-mono-kicker text-sm uppercase tracking-[0.2em] text-chalk"
           >
