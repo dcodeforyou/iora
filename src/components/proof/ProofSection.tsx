@@ -7,6 +7,7 @@ import { PROOF_CARD_TOP_VH } from "@/lib/scroll/marbleGeometry";
 import ProofGlassCanvas, { CARD_COUNT, createProofGlassState } from "./ProofGlassCanvas";
 import { playGlassBounce } from "@/lib/sound/sfx";
 import { HERO_VIDEO_BREAKPOINT } from "@/lib/scroll/heroEntry";
+import { useEcosystemHorizontalNav } from "@/lib/proof/useEcosystemHorizontalNav";
 
 const CARD_RADIUS_PX = 44; // matches the WebGL card mesh's uRadius default
 
@@ -84,6 +85,17 @@ const DWELL3_END = 0.86;
 // Fraction of the EXIT zone (DWELL3_END to 1) spent on the scroll-tied
 // rise before handing off to the independent gravity fall below.
 const EXIT_RISE_FRACTION = 0.4;
+
+// The middle of each card's dwell — where swipe/trackpad/arrow input
+// lands the scroll position. DERIVED from the boundaries above rather
+// than written out as 0.11 / 0.43 / 0.75, so retuning a dwell moves the
+// gesture targets with it instead of leaving them pointing at where a
+// card used to settle.
+const CARD_CENTERS = [
+  DWELL1_END / 2,
+  (TRANSITION1_END + DWELL2_END) / 2,
+  (TRANSITION2_END + DWELL3_END) / 2,
+];
 
 // The card's top edge IS the marble's resting place — it rests ON the
 // roof, bouncing UP away from it, not the other way around. These are
@@ -175,6 +187,10 @@ export default function ProofSection() {
   // ProofGlassCanvas. Per AGENTS.md: Three.js state goes through
   // refs/uniforms, never triggers a React re-render.
   const glassState = useMemo(() => createProofGlassState(), []);
+  // Swipe / trackpad / arrow keys as a second way to reach the same
+  // scroll position the vertical progression already uses — see the
+  // hook for why there is no separate activeStep state.
+  useEcosystemHorizontalNav({ sectionRef, cardCenters: CARD_CENTERS });
   // One ref per card's glimpse video. Desktop: played/paused imperatively
   // (CSS :hover alone can't start video playback) on real pointer enter/
   // leave — not autoplaying in the background the whole time a visitor is
