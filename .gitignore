@@ -64,3 +64,9 @@ next-env.d.ts
 /b_smooth.svg
 /c_smooth.svg
 /d.svg
+
+# Raw film masters — source uploads, not shipped.
+# The web-ready derivatives live in public/films/<slug>/ and are generated
+# from these by scripts/generate-film-metadata.mjs plus the ffmpeg pass.
+# 191MB of originals has no business in git history.
+ai films/

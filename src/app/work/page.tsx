@@ -1,6 +1,7 @@
 import Nav from "@/components/site/Nav";
 import Footer from "@/components/site/Footer";
 import ProjectCard from "@/components/work/ProjectCard";
+import WorkFilmsBanner from "@/components/films/WorkFilmsBanner";
 import { PROJECTS } from "@/lib/work/projects";
 
 export default function WorkPage() {
@@ -23,6 +24,13 @@ export default function WorkPage() {
             just to launch.
           </p>
         </div>
+
+        {/* Gateway to the films world, between the intro copy and the
+            website grid. Placed here rather than after the cards because a
+            transition has to be passed through, not discovered at the end
+            of the page. Purely additive — nothing about the grid below or
+            the intro above changes. */}
+        <WorkFilmsBanner />
 
         <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 md:grid-cols-2">
           {PROJECTS.map((project) => (

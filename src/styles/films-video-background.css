@@ -1,0 +1,141 @@
+/*
+  Films video background.
+
+  Poster and video are stacked permanently rather than swapped: the poster
+  stays underneath at all times so there is no path — autoplay refusal,
+  reduced motion, data saver, slow network, asset switch on rotate — that
+  can leave an empty rectangle. `is-ready` only cross-fades the video over
+  the top once it genuinely has a frame.
+
+  `object-fit: cover` throughout, never `fill`. The composition is a
+  circular arc; a non-uniform scale would bend it into an ellipse, which is
+  immediately visible and impossible to unsee.
+*/
+
+.filmsVideoBg {
+  --films-bg-poster: none;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: #07080b;
+  isolation: isolate;
+}
+
+.filmsVideoBg__poster,
+.filmsVideoBg__video,
+.filmsVideoBg__vignette,
+.filmsVideoBg__contentGuard {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.filmsVideoBg__poster {
+  z-index: 0;
+  background: #07080b var(--films-bg-poster) center center / cover no-repeat;
+  opacity: 1;
+  transition: opacity 700ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.filmsVideoBg__video {
+  z-index: 1;
+  display: block;
+  object-fit: cover;
+  object-position: 50% 50%;
+  opacity: 0;
+  transform: translateZ(0);
+  will-change: opacity;
+  transition: opacity 800ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.filmsVideoBg.is-ready .filmsVideoBg__video {
+  opacity: 1;
+}
+
+/* Not 0. The poster is left barely-there rather than fully hidden so the
+   browser keeps it painted — if the video stalls or is evicted mid-scroll
+   there is still something behind it instead of a black hole. */
+.filmsVideoBg.is-ready .filmsVideoBg__poster {
+  opacity: 0.01;
+}
+
+.filmsVideoBg__vignette {
+  z-index: 2;
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(7, 8, 11, 0.08) 0%,
+      transparent 23%,
+      transparent 70%,
+      rgba(7, 8, 11, 0.24) 100%
+    ),
+    radial-gradient(ellipse 82% 76% at 50% 44%, transparent 50%, rgba(7, 8, 11, 0.12) 78%, rgba(7, 8, 11, 0.3) 100%);
+}
+
+/* A soft pool of extra darkness exactly where the hero block sits, so the
+   headline holds its contrast wherever the loop happens to be bright. */
+.filmsVideoBg__contentGuard {
+  z-index: 3;
+  background: radial-gradient(ellipse 54% 34% at 50% 36%, rgba(7, 8, 11, 0.1), transparent 72%);
+}
+
+/* Framing per viewport shape. The arc's interesting part sits upper-right,
+   so squarer and ultrawide screens need slightly different anchoring to
+   keep it in frame rather than cropping into empty sky. */
+@media (min-width: 901px) and (max-aspect-ratio: 1.9/1) {
+  .filmsVideoBg__video { object-position: 50% 50%; }
+  .filmsVideoBg__poster { background-position: 50% 50%; }
+}
+
+@media (min-width: 901px) and (min-aspect-ratio: 1.9/1) {
+  .filmsVideoBg__video { object-position: 50% 45%; }
+  .filmsVideoBg__poster { background-position: 50% 45%; }
+}
+
+@media (min-width: 901px) and (max-aspect-ratio: 1.55/1) {
+  .filmsVideoBg__video { object-position: 55% 50%; }
+  .filmsVideoBg__poster { background-position: 55% 50%; }
+}
+
+@media (max-width: 900px) and (orientation: portrait) {
+  .filmsVideoBg__video { object-position: 50% 50%; }
+  .filmsVideoBg__poster { background-position: 50% 50%; }
+
+  .filmsVideoBg__vignette {
+    background:
+      linear-gradient(
+        to bottom,
+        rgba(7, 8, 11, 0.1) 0%,
+        transparent 20%,
+        transparent 68%,
+        rgba(7, 8, 11, 0.28) 100%
+      ),
+      radial-gradient(ellipse 96% 72% at 50% 42%, transparent 46%, rgba(7, 8, 11, 0.13) 78%, rgba(7, 8, 11, 0.28) 100%);
+  }
+
+  .filmsVideoBg__contentGuard {
+    background: radial-gradient(ellipse 78% 28% at 50% 27%, rgba(7, 8, 11, 0.12), transparent 74%);
+  }
+}
+
+/* The teaser strip is a doorway, not the destination: the same world, held
+   back so it cannot outshine the banner's own copy and CTA. */
+.filmsVideoBg--banner .filmsVideoBg__video,
+.filmsVideoBg--banner .filmsVideoBg__poster {
+  opacity: 0.78;
+}
+.filmsVideoBg--banner.is-ready .filmsVideoBg__poster {
+  opacity: 0.01;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filmsVideoBg__video {
+    display: none !important;
+  }
+  .filmsVideoBg__poster {
+    opacity: 1 !important;
+    transition: none;
+  }
+}

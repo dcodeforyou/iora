@@ -1,0 +1,235 @@
+/*
+  AI FILMS WORLD — scoped stylesheet.
+
+  Deliberately a separate file from globals.css, imported only by the films
+  routes. Every selector here is namespaced `.film-*`, and every token is
+  `--film-*`, so nothing in this file can reach the existing site: the Work
+  index, the website case studies and their mobile fixes keep their own
+  tokens untouched. That isolation is the point — the films world is an
+  additional chapter, not a restyle of what already ships.
+
+  The palette is close to, but not the same as, the site's own: a deeper
+  near-black and a slightly hotter coral, because this world is lit rather
+  than flat. Kept as its own token set rather than overriding --color-ink
+  and --color-accent globally, which would have repainted the entire site.
+*/
+
+.film-world {
+  --film-bg: #07080b;
+  --film-bg-soft: #0c0d11;
+  --film-bg-raised: #111318;
+  --film-paper: #f3f1ed;
+  --film-paper-78: rgba(243, 241, 237, 0.78);
+  --film-paper-58: rgba(243, 241, 237, 0.58);
+  --film-paper-48: rgba(243, 241, 237, 0.48);
+  --film-paper-42: rgba(243, 241, 237, 0.42);
+  --film-coral: #ff5a3c;
+  --film-coral-hot: #ff7554;
+  --film-coral-soft: rgba(255, 90, 60, 0.18);
+  --film-coral-glow: rgba(255, 90, 60, 0.34);
+  --film-line: rgba(255, 255, 255, 0.12);
+  --film-line-strong: rgba(255, 255, 255, 0.18);
+  --film-glass: rgba(10, 10, 13, 0.72);
+  --film-radius-card: 18px;
+  --film-radius-media: 12px;
+  --film-radius-pill: 999px;
+  --film-gutter-desktop: 56px;
+  --film-gap: 16px;
+
+  position: relative;
+  background: var(--film-bg);
+  color: var(--film-paper);
+}
+
+/* ── ATMOSPHERE ─────────────────────────────────────────────────────────
+   Layer order is fixed by the spec: base + glow (0), arc (1), flare and
+   particles (2), vignette/grain (4-5), content (10). Everything here is
+   decorative, so the wrapper carries aria-hidden and pointer-events:none
+   and no layer may ever intercept a click. */
+.film-atmosphere {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  isolation: isolate;
+  background: var(--film-bg);
+}
+
+/* The arc, its halos, the vapour and the flare are all SVG now — see
+   FilmAtmosphere. The `slice` artboard is what crops the circle into a
+   composition; a CSS `border-radius: 50%` div sized in vw kept the same
+   fraction of the ring visible at every width, which is precisely why it
+   read as a centred graphic circle. */
+.film-atmosphere__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Only the HALO breathes. The crisp rim holds still — animating it makes
+   the whole thing read as an effect rather than as light. */
+.film-arc-halo {
+  animation: filmArcBreath 10s ease-in-out infinite;
+  will-change: opacity;
+}
+.film-arc-flare {
+  transform-origin: 1065px 121px;
+  animation: filmFlarePulse 9s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+/* Vapour evolves by drifting and scaling a fraction of a percent. Nothing
+   here animates the turbulence itself: re-running feTurbulence every frame
+   is a full-filter repaint, and this has to stay free.
+   Duration, delay and opacity are set PER CLUSTER inline — six plumes on
+   one shared clock would pulse in unison, which is the uniformity this
+   whole change exists to remove. Opacity is left out of the keyframes for
+   the same reason: it carries each cluster's density. */
+.film-arc-fume {
+  transform-origin: 745px 690px;
+  animation-name: filmFumeDrift;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  will-change: transform;
+}
+
+.film-particles {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.film-atmosphere__vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background:
+    radial-gradient(ellipse at center, transparent 42%, rgba(0, 0, 0, 0.2) 74%, rgba(0, 0, 0, 0.56) 100%),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.1), transparent 24%, transparent 78%, rgba(0, 0, 0, 0.2));
+}
+
+.film-atmosphere__grain {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  opacity: 0.028;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.52'/%3E%3C/svg%3E");
+}
+
+/* Variant intensity. The detail page quiets the world so the film is the
+   brightest object; the banner is a compact strip, so it leans on the same
+   artboard but shows a different part of it (see the viewBox override). */
+.film-atmosphere--detail .film-atmosphere__svg { opacity: 0.72; }
+.film-atmosphere--detail .film-particles { opacity: 0.6; }
+.film-atmosphere--banner .film-atmosphere__svg { opacity: 0.9; }
+
+/* ── AI FILMS TEASER BANNER — GLOWING BORDER ───────────────────────────
+   Two layers doing two different jobs.
+
+   The outer bloom is a box-shadow on the element ITSELF, not a pseudo-
+   element, because the banner carries `overflow: hidden` (it has to — the
+   background video is cropped to the rounded rect). Overflow clips
+   descendants, so an ::after bloom would be cut off exactly at the border
+   it is supposed to glow beyond. box-shadow is not clipped by its own
+   element's overflow, so it is the only thing that can escape.
+
+   The inner ring is the ::after, and it is inset — so being clipped is
+   fine — and it is the only part that animates. Opacity on a pseudo-
+   element is compositor-work; animating the box-shadow instead would
+   repaint a large blurred region every frame, which is the failure mode
+   this site already has a documented iOS history with. */
+.film-banner-glow {
+  box-shadow:
+    0 0 20px rgba(255, 90, 60, 0.16),
+    0 0 52px rgba(255, 90, 60, 0.09);
+  transition: box-shadow 280ms ease;
+}
+.film-banner-glow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  /* Sits just inside the real border and reads as the light coming off it
+     rather than as a second outline. */
+  box-shadow: inset 0 0 22px rgba(255, 120, 80, 0.16);
+  opacity: 0.8;
+  animation: filmBannerGlow 9s ease-in-out infinite;
+  will-change: opacity;
+}
+.film-banner-glow:hover {
+  box-shadow:
+    0 0 26px rgba(255, 90, 60, 0.26),
+    0 0 72px rgba(255, 90, 60, 0.14);
+}
+
+@keyframes filmBannerGlow {
+  0%, 100% { opacity: 0.62; }
+  50% { opacity: 1; }
+}
+
+/* ── CARD GRID ──────────────────────────────────────────────────────────
+   Canonical geometry from the spec: 4 equal columns with 16px gaps inside
+   56px gutters at the reference viewport, stepping down at 1440 / 1100 /
+   768. Written here rather than as Tailwind utilities because the spec's
+   breakpoints are not Tailwind's, and because arbitrary `min-[…]:`
+   variants get sorted ahead of named ones — which let `md:grid-cols-2`
+   override a 1100px rule at every larger width. */
+.films-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--film-gap);
+}
+@media (min-width: 768px) {
+  .films-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1100px) {
+  .films-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 1440px) {
+  .films-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+
+
+@keyframes filmArcBreath {
+  0%, 100% { opacity: 0.82; }
+  50% { opacity: 1; }
+}
+@keyframes filmFlarePulse {
+  0%, 100% { opacity: 0.88; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.03); }
+}
+@keyframes filmFumeDrift {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-9px, 7px, 0) scale(1.018); }
+}
+
+/* Mobile needs no geometry override at all any more — that is the payoff
+   of the artboard. `slice` already crops harder on a narrow viewport, so
+   the upper-right segment dominates by construction rather than by a
+   second set of hand-written coordinates that could drift from the first.
+   Only intensity is dialled back. */
+@media (max-width: 767px) {
+  .film-atmosphere__svg { opacity: 0.82; }
+  .film-atmosphere__grain { opacity: 0.02; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The glow stays — it is part of the border, not motion. Only its
+     breathing stops. */
+  .film-banner-glow::after { animation: none !important; opacity: 0.8 !important; }
+  .film-arc-halo,
+  .film-arc-flare,
+  .film-arc-fume {
+    animation: none !important;
+  }
+  .film-arc-rim-hot { opacity: 0.5 !important; }
+}
