@@ -25,6 +25,12 @@ import { FIELDS, validate, type BookFormValues, type FieldId } from "@/lib/book/
  */
 
 const WHEEL_COOLDOWN_MS = 420;
+/** Vertical travel that proves a swipe is a swipe, not a tap or a
+ *  horizontal drag. Deliberately small: the page keeps scrolling until
+ *  this point, so every pixel here is a pixel of visible page shift. */
+const DECIDE_PX = 14;
+/** Travel required to actually change field once the gesture is ours. */
+const COMMIT_PX = 30;
 /** Cumulative offsets by distance from centre; index 0 is the centre. */
 const GAP_VARS = ["0px", "var(--gap-1)", "var(--gap-2)", "var(--gap-3)"];
 
@@ -88,20 +94,72 @@ export default function FocusWheelForm({ values, onChange, onComplete }: Props) 
       wheelLockedUntil.current = now + WHEEL_COOLDOWN_MS;
       goTo(next);
     };
-    node.addEventListener("wheel", handler, { passive: false });
-    return () => node.removeEventListener("wheel", handler);
-  }, [active, goTo]);
+    // ── Touch ──────────────────────────────────────────────────────
+    //
+    // The page used to move at the same time as the wheel. Without a
+    // touchmove handler the browser scrolls the whole document through
+    // the drag, and then touchend advanced a field on top of it — two
+    // things moving for one gesture, which reads as the page lurching.
+    //
+    // So the gesture is CLAIMED as soon as vertical intent is clear, and
+    // only then. Before that, and whenever the wheel cannot honour it,
+    // the browser keeps the gesture and the page scrolls normally — the
+    // form must never become a place you cannot scroll out of.
+    let startY = 0;
+    let startX = 0;
+    let claimed: number | null = null;
+    let decided = false;
 
-  // ── Touch: vertical swipe between fields ──────────────────────────
-  const touchY = useRef(0);
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchY.current = e.touches[0]?.clientY ?? 0;
-  };
-  const onTouchEnd = (e: React.TouchEvent) => {
-    const dy = (e.changedTouches[0]?.clientY ?? touchY.current) - touchY.current;
-    if (Math.abs(dy) < 40) return;
-    goTo(active + (dy < 0 ? 1 : -1));
-  };
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      startY = e.touches[0].clientY;
+      startX = e.touches[0].clientX;
+      claimed = null;
+      decided = false;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      if (decided) {
+        // Keep preventing for the rest of a claimed gesture; a single
+        // preventDefault only stops the frame it was called on.
+        if (claimed !== null && e.cancelable) e.preventDefault();
+        return;
+      }
+      const dy = e.touches[0].clientY - startY;
+      const dx = e.touches[0].clientX - startX;
+      // Small, so the page has barely moved by the time we take over.
+      if (Math.abs(dy) < DECIDE_PX) return;
+      decided = true;
+      if (Math.abs(dy) <= Math.abs(dx)) return; // horizontal — not ours
+      const target = active + (dy < 0 ? 1 : -1);
+      if (target < 0 || target >= FIELDS.length) return; // edge release
+      claimed = target;
+      if (e.cancelable) e.preventDefault();
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (claimed === null) return;
+      const dy = (e.changedTouches[0]?.clientY ?? startY) - startY;
+      // Claimed at DECIDE_PX, but only committed at a real swipe
+      // distance — a short drag should not change the field under
+      // someone who was only trying to scroll.
+      if (Math.abs(dy) >= COMMIT_PX) goTo(claimed);
+      claimed = null;
+      decided = false;
+    };
+
+    node.addEventListener("wheel", handler, { passive: false });
+    node.addEventListener("touchstart", onTouchStart, { passive: true });
+    node.addEventListener("touchmove", onTouchMove, { passive: false });
+    node.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      node.removeEventListener("wheel", handler);
+      node.removeEventListener("touchstart", onTouchStart);
+      node.removeEventListener("touchmove", onTouchMove);
+      node.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [active, goTo]);
 
   const submit = () => {
     setAttempted(true);
@@ -160,12 +218,7 @@ export default function FocusWheelForm({ values, onChange, onComplete }: Props) 
         </span>
       </div>
 
-      <div
-        ref={hostRef}
-        className="focusWheel"
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-      >
+      <div ref={hostRef} className="focusWheel">
         <button
           type="button"
           className="focusWheel__nudge focusWheel__nudge--up"

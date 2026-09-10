@@ -127,10 +127,13 @@ export const EMPTY_VALUES: BookFormValues = {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
- * Normalises a typed hostname to a URL, or returns null if it is not
- * one. Never fetches it — the brief is explicit, and a server that
- * requests whatever URL a stranger typed is an SSRF probe with a form
- * in front of it.
+ * Tidies a typed hostname into a URL when it clearly is one, and returns
+ * null when it is not. Callers treat null as "leave it as the person
+ * typed it", NOT as an error — see validate().
+ *
+ * Never fetches it, whatever it turns out to be. A server that requests
+ * whatever URL a stranger typed is an SSRF probe with a form in front of
+ * it.
  */
 export function normaliseWebsite(raw: string): string | null {
   const value = raw.trim();
@@ -173,12 +176,17 @@ export function validate(input: Partial<Record<FieldId, unknown>>): ValidationRe
       continue;
     }
     if (field.id === "website" && value) {
-      const normalised = normaliseWebsite(value);
-      if (!normalised) {
-        errors[field.id] = "That doesn't look like a web address";
-        continue;
-      }
-      values[field.id] = normalised;
+      // Deliberately NOT validated. This field asks for "Brand / Website
+      // URL" and plenty of honest answers are neither — a brand name, an
+      // Instagram handle, "we don't have one yet". Rejecting those turns
+      // an optional field into a wall in front of someone who was about
+      // to book, which is a far worse outcome than an untidy string.
+      //
+      // So: tidy it into a URL when it plainly is one, and otherwise keep
+      // exactly what they typed. The value is only ever carried as text,
+      // never rendered as a link and never requested, so an unparseable
+      // one is harmless.
+      values[field.id] = normaliseWebsite(value) ?? value;
       continue;
     }
     values[field.id] = value;
