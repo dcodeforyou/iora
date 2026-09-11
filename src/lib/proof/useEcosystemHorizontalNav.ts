@@ -29,6 +29,8 @@ import { getLenisInstance } from "@/lib/scroll/lenisInstance";
 /** §2.1 — horizontal intent has to be clear before a gesture is taken. */
 const SWIPE_MIN_PX = 48;
 const SWIPE_AXIS_RATIO = 1.2;
+/** Vertical travel at which a drag is treated as a scroll and left alone. */
+const VERTICAL_BAILOUT_PX = 10;
 
 /** §2.3 — one trackpad flick must not skip two cards. */
 const WHEEL_MIN_PX = 30;
@@ -130,59 +132,120 @@ export function useEcosystemHorizontalNav({ sectionRef, cardCenters }: Options) 
       return resolveStep({ scrollY: window.scrollY, startY, endY, cardCenters, direction });
     };
 
-    const goTo = (index: number) => {
+    /**
+     * The card a move is already heading to, while that move is running.
+     *
+     * Without this, a second swipe made mid-move is measured from wherever
+     * the scroll happens to be halfway through the animation — which sits
+     * almost exactly between two cards, so "nearest card + 1" frequently
+     * resolved to the SAME destination and the second swipe did nothing.
+     * Two quick swipes should mean two cards.
+     */
+    let inFlight: { index: number; until: number } | null = null;
+
+    const nextCard = (direction: 1 | -1): number | null => {
+      if (inFlight && performance.now() < inFlight.until) {
+        const to = inFlight.index + direction;
+        return to >= 0 && to < cardCenters.length ? to : null;
+      }
+      return step(direction)?.to ?? null;
+    };
+
+    const goTo = (index: number, via: "touch" | "desktop") => {
       const { startY, endY } = range();
       const target = startY + cardCenters[index] * (endY - startY);
+      inFlight = { index, until: performance.now() + MOVE_SECONDS * 1000 + 150 };
       const lenis = getLenisInstance();
-      if (lenis) {
+      if (via === "desktop" && lenis) {
         lenis.scrollTo(target, { duration: MOVE_SECONDS, easing: EASE });
       } else {
-        // Lenis is not running (reduced motion, or before it mounts).
-        // Native smooth scrolling is the honest fallback; it also
-        // respects the OS reduce-motion setting on its own.
+        // Touch always uses the browser's own smooth scroll, never Lenis.
+        // Lenis does not drive touch scrolling on this site (syncTouch is
+        // off), so a Lenis animation running under a finger is two
+        // scroll engines writing the same position — the next vertical
+        // drag fights the tail of the swipe and the page stutters. The
+        // native one is interrupted by the browser the instant a new
+        // touch lands, and it runs off the main thread.
         window.scrollTo({ top: target, behavior: "smooth" });
       }
     };
 
     // ── Touch ──────────────────────────────────────────────────────
-    let touchX = 0;
-    let touchY = 0;
-    /** Resolved at the moment of capture, not at touchend. */
-    let captured: number | null = null;
-    let decided = false;
+    //
+    // Two things made this section feel wrong on a phone.
+    //
+    // 1. Vertical scrolling was waiting on JavaScript. A non-passive
+    //    touchmove listener on a 500vh section tells the browser it may
+    //    NOT scroll until that listener has run and confirmed it did not
+    //    call preventDefault — for every single touchmove, on a main
+    //    thread already carrying GSAP, the glass and three looping
+    //    videos. That is the stutter in plain vertical scrolling.
+    //
+    // 2. Horizontal swipes arrived too late to claim. The old code only
+    //    decided at 48px of sideways travel, but a browser commits a
+    //    gesture to a vertical pan within the first few pixels of any
+    //    drift, and after that iOS marks touchmove uncancellable. So a
+    //    slightly-diagonal swipe scrolled the page a little, THEN jumped
+    //    to the next card.
+    //
+    // `touch-action: pan-y` fixes both at the root. It tells the browser
+    // that vertical panning is its job and horizontal panning is not a
+    // scroll at all — so vertical scrolling is pure native, compositor-
+    // driven, with no listener in its way, and a horizontal swipe never
+    // starts a native pan in the first place. Nothing here needs to call
+    // preventDefault any more, which is what lets every listener be
+    // passive. Pinch-zoom is kept where the browser supports saying so.
+    const previousTouchAction = section.style.touchAction;
+    section.style.touchAction = CSS.supports("touch-action", "pan-y pinch-zoom")
+      ? "pan-y pinch-zoom"
+      : "pan-y";
+
+    let startX = 0;
+    let startY = 0;
+    /** null = undecided; set once the gesture's axis is known. */
+    let axis: "x" | "y" | null = null;
+    let swipeDx = 0;
 
     const onTouchStart = (e: TouchEvent) => {
+      // Two fingers is a pinch, never a swipe.
+      axis = e.touches.length === 1 ? null : "y";
       if (e.touches.length !== 1) return;
-      touchX = e.touches[0].clientX;
-      touchY = e.touches[0].clientY;
-      captured = null;
-      decided = false;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      swipeDx = 0;
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      if (decided || e.touches.length !== 1) {
-        if (captured !== null && e.cancelable) e.preventDefault();
-        return;
+      if (axis === "y" || e.touches.length !== 1) return;
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+      if (axis === null) {
+        // Mirror the browser's own decision: under pan-y it begins a
+        // vertical scroll as soon as the drag is clearly vertical, so
+        // that gesture is the page's from then on and must never also
+        // be read as a sideways swipe when it drifts.
+        if (Math.abs(dy) >= VERTICAL_BAILOUT_PX && Math.abs(dy) >= Math.abs(dx)) {
+          axis = "y";
+          inFlight = null; // a manual scroll supersedes any queued card
+          return;
+        }
+        if (Math.abs(dx) >= SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * SWIPE_AXIS_RATIO) {
+          axis = "x";
+        }
       }
-      const dx = e.touches[0].clientX - touchX;
-      const dy = e.touches[0].clientY - touchY;
-      if (Math.abs(dx) < SWIPE_MIN_PX) return;
-      decided = true;
-      // Vertical intent wins outright — not preventing here is what
-      // stops the section becoming a scroll trap.
-      if (Math.abs(dx) <= Math.abs(dy) * SWIPE_AXIS_RATIO) return;
-      // The destination is checked at capture time. Deciding late would
-      // mean having already swallowed a gesture we cannot then honour.
-      const resolved = step(dx < 0 ? 1 : -1);
-      if (!resolved) return;
-      captured = resolved.to;
-      if (e.cancelable) e.preventDefault();
+      if (axis === "x") swipeDx = dx;
     };
 
     const onTouchEnd = () => {
-      if (captured !== null) goTo(captured);
-      captured = null;
-      decided = false;
+      // Committed on release rather than mid-drag. iOS will not reliably
+      // start a programmatic smooth scroll while a finger is still down,
+      // and "swipe, let go, it moves" is the carousel contract people
+      // already have in their hands.
+      if (axis === "x") {
+        const to = nextCard(swipeDx < 0 ? 1 : -1);
+        if (to !== null) goTo(to, "touch");
+      }
+      axis = null;
     };
 
     // ── Trackpad ───────────────────────────────────────────────────
@@ -191,8 +254,8 @@ export function useEcosystemHorizontalNav({ sectionRef, cardCenters }: Options) 
     const onWheel = (e: WheelEvent) => {
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return; // vertical — leave it alone
       if (Math.abs(e.deltaX) < WHEEL_MIN_PX) return;
-      const resolved = step(e.deltaX > 0 ? 1 : -1);
-      if (!resolved) return; // outside the section, or edge release
+      const to = nextCard(e.deltaX > 0 ? 1 : -1);
+      if (to === null) return; // outside the section, or edge release
       // preventDefault here does double duty: it stops the browser
       // treating a two-finger horizontal flick as a history back/forward
       // gesture, which would otherwise navigate away mid-section.
@@ -200,7 +263,7 @@ export function useEcosystemHorizontalNav({ sectionRef, cardCenters }: Options) 
       const now = performance.now();
       if (now < wheelLockedUntil) return;
       wheelLockedUntil = now + WHEEL_COOLDOWN_MS;
-      goTo(resolved.to);
+      goTo(to, "desktop");
     };
 
     // ── Keyboard ───────────────────────────────────────────────────
@@ -219,25 +282,28 @@ export function useEcosystemHorizontalNav({ sectionRef, cardCenters }: Options) 
       ) {
         return;
       }
-      const resolved = step(e.key === "ArrowRight" ? 1 : -1);
-      if (!resolved) return; // outside the section, or edge release
+      const to = nextCard(e.key === "ArrowRight" ? 1 : -1);
+      if (to === null) return; // outside the section, or edge release
       e.preventDefault();
-      goTo(resolved.to);
+      goTo(to, "desktop");
     };
 
-    // `passive: false` on the two that call preventDefault; the browser
-    // defaults touchmove and wheel to passive and would otherwise ignore
-    // the call with a console warning.
+    // Every touch listener is passive now — see the touch notes above.
+    // Wheel stays non-passive because it is the one input that still has
+    // a native behaviour (history swipe) worth cancelling.
     section.addEventListener("touchstart", onTouchStart, { passive: true });
-    section.addEventListener("touchmove", onTouchMove, { passive: false });
+    section.addEventListener("touchmove", onTouchMove, { passive: true });
     section.addEventListener("touchend", onTouchEnd, { passive: true });
+    section.addEventListener("touchcancel", onTouchEnd, { passive: true });
     window.addEventListener("wheel", onWheel, { passive: false });
     window.addEventListener("keydown", onKeyDown);
 
     return () => {
+      section.style.touchAction = previousTouchAction;
       section.removeEventListener("touchstart", onTouchStart);
       section.removeEventListener("touchmove", onTouchMove);
       section.removeEventListener("touchend", onTouchEnd);
+      section.removeEventListener("touchcancel", onTouchEnd);
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("keydown", onKeyDown);
     };
