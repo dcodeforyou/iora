@@ -451,14 +451,21 @@
    the scheduler this site can style. Deep-styling the calendar itself
    would need the Scheduling API and a paid plan — see the note in
    ScheduleStep.tsx. */
+/* An explicit HEIGHT, not min-height. Calendly's iframe is height: 100%,
+   and 100% of a min-height-only box resolves to auto — 150px for an
+   iframe. This is only the starting size: once the calendar reports its
+   real content height (see `resize` in ScheduleStep.tsx) the widget
+   writes that onto this element inline, which wins. */
 .bookSchedule__embed {
-  min-height: 640px;
+  height: 700px;
   width: 100%;
 }
 
 @media (max-width: 767px) {
+  /* Calendly stacks on a phone — month grid, then times beneath — so it
+     starts much taller than the side-by-side desktop layout. */
   .bookSchedule__embed {
-    min-height: 900px;
+    height: 1000px;
   }
 }
 

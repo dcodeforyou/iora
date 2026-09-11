@@ -21,7 +21,13 @@ import type { BookFormValues } from "@/lib/book/fields";
  * visitor who never finishes Step 01 never downloads it.
  */
 
-const CALENDLY_URL = "https://calendly.com/dcodeforyou";
+// The event itself, not the profile page. calendly.com/dcodeforyou is a
+// list of event types ("Welcome to my scheduling page… 30 Minute
+// Meeting ▸") — embedding it put an extra click between the visitor and
+// the calendar, inside a box that already says "pick a time". There is
+// one event type on the account (confirmed against Calendly's public
+// booking API), so this goes straight to its date grid.
+const CALENDLY_URL = "https://calendly.com/dcodeforyou/30min";
 const SCRIPT_SRC = "https://assets.calendly.com/assets/external/widget.js";
 
 type CalendlyGlobal = {
@@ -30,6 +36,7 @@ type CalendlyGlobal = {
     parentElement: HTMLElement;
     prefill?: Record<string, unknown>;
     utm?: Record<string, string>;
+    resize?: boolean;
   }) => void;
 };
 
@@ -57,6 +64,18 @@ export default function ScheduleStep({
         // out — the ïora page above already said all of it.
         url: `${CALENDLY_URL}?hide_event_type_details=1`,
         parentElement: hostRef.current,
+        // Calendly's iframe is `height: 100%`, and a percentage height
+        // against a parent that only has a min-height resolves to auto —
+        // which for an iframe is the browser default of 150px. That is
+        // what the scheduler was rendering at: a 150px strip, mostly
+        // covered by its own cookie notice, at the top of an empty box.
+        //
+        // `resize` makes the widget listen for Calendly's own
+        // page_height message and size the container to the calendar's
+        // real content height as it changes (date grid, then times, then
+        // the details form). book.css gives it a sensible explicit height
+        // for the moment before the first message arrives.
+        resize: true,
         // The visitor already answered these. Asking twice is the
         // fastest way to lose someone who has already decided to book.
         //
