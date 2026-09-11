@@ -877,19 +877,24 @@ export default function CrtPowerOn() {
                         // override.
                         style={{ transform: "translateY(100%)" }}
                       >
-                        {/* Grey outline, full opacity — the unfilled part of
-                            the word has not arrived yet, so it sits at the
-                            muted end and lets the accent be the only thing
-                            reading as present. No drop shadow: the mask would
-                            clip it into a hard edge under each character. */}
+                        {/* Chalk outline. It was grey (#8a8a92) so the accent
+                            would be the only thing reading as present, but a
+                            0.75px grey stroke on near-black simply was not
+                            visible on a phone — the unfilled half of the word
+                            disappeared rather than waiting. No drop shadow:
+                            the mask would clip it into a hard edge under each
+                            character. */}
                         <span
                           className="block text-transparent"
-                          style={{ WebkitTextStroke: "0.75px #8a8a92" }}
+                          style={{ WebkitTextStroke: "0.75px var(--color-chalk)" }}
                         >
                           {ch}
                         </span>
+                        {/* Fill at 80%, so it reads as light filling the
+                            letter rather than a solid block painted over it —
+                            the chalk edge stays faintly visible through it. */}
                         <span
-                          className="absolute inset-0 block text-accent"
+                          className="absolute inset-0 block text-accent/80"
                           style={{ clipPath: "inset(var(--loader-fill) 0 0 0)" }}
                         >
                           {ch}
