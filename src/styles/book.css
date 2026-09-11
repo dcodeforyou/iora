@@ -164,6 +164,27 @@
   height: 570px;
 }
 
+/* A drag anywhere on the fields is not a page scroll. Declared on every
+   descendant, not just the wheel, because touch-action is decided by the
+   element under the finger and its ancestors only up to the nearest
+   scroll container — and text inputs and textareas ARE scroll
+   containers. Left at `auto`, a swipe that happened to start on an input
+   would scroll the page straight past the wheel's own setting. Taps,
+   focus and typing are unaffected: touch-action governs panning and
+   zooming, nothing else. */
+.focusWheel,
+.focusWheel * {
+  touch-action: none;
+}
+
+/* The one exception: a note long enough to overflow its box may pan
+   itself, and overscroll-behavior stops that pan handing on to the page
+   when it reaches the end of the text. */
+.focusWheel textarea[data-scrollable="true"] {
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}
+
 .focusWheel__card {
   position: absolute;
   left: 50%;
@@ -177,8 +198,11 @@
   justify-content: center;
   gap: 6px;
   background: rgba(12, 12, 15, 0.58);
-  border: 1px solid rgba(255, 255, 255, 0.055);
-  color: rgba(243, 241, 237, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  /* Raised from .30 along with the tier opacities below. The two
+     multiply: at .30 text inside a .34 card was rendering at ~10%, which
+     is what "barely visible" was measuring. */
+  color: rgba(243, 241, 237, 0.46);
   /* Every distance tier below sets these three; declaring them here
      means a card can never inherit a stale value mid-transition. */
   --card-w: 100%;
@@ -215,14 +239,14 @@
 .focusWheel__card[data-distance="1"] {
   --card-w: 92%;
   --card-scale: 0.96;
-  opacity: 0.34;
+  opacity: 0.52;
   z-index: 3;
 }
 
 .focusWheel__card[data-distance="2"] {
   --card-w: 82%;
   --card-scale: 0.9;
-  opacity: 0.17;
+  opacity: 0.3;
   z-index: 2;
 }
 
@@ -479,12 +503,12 @@
 
   .focusWheel__card[data-distance="1"] {
     --card-w: 91%;
-    opacity: 0.28;
+    opacity: 0.48;
   }
 
   .focusWheel__card[data-distance="2"] {
     --card-w: 80%;
-    opacity: 0.13;
+    opacity: 0.26;
   }
 
   .focusWheel__chip {

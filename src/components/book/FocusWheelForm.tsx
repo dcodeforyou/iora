@@ -24,13 +24,27 @@ import { FIELDS, validate, type BookFormValues, type FieldId } from "@/lib/book/
  * hands focus on to the chips once it arrives.
  */
 
-const WHEEL_COOLDOWN_MS = 420;
-/** Vertical travel that proves a swipe is a swipe, not a tap or a
- *  horizontal drag. Deliberately small: the page keeps scrolling until
- *  this point, so every pixel here is a pixel of visible page shift. */
-const DECIDE_PX = 14;
-/** Travel required to actually change field once the gesture is ours. */
-const COMMIT_PX = 30;
+/*
+  Wheel / trackpad gesture model: ONE GESTURE = ONE FIELD.
+
+  The old version stepped on a 420ms cooldown, which is fine for a mouse
+  notch and wrong for a trackpad: a Mac flick keeps emitting momentum
+  events for about a second after the fingers lift, so one flick walked
+  two or three fields. Now a step locks until the event stream goes
+  quiet, and only two things break the lock early: a fresh push (deltas
+  jump up again, which momentum never does) or a genuinely held stream
+  (a mouse wheel spun continuously, constant force, not decaying).
+*/
+/** Silence after which the next event is a new gesture. */
+const WHEEL_QUIET_MS = 160;
+/** Accumulated travel needed before a gesture counts. One mouse notch
+ *  clears it alone; a trackpad needs a deliberate push, not a brush. */
+const WHEEL_STEP_PX = 30;
+/** A continuous stream at real force may step again after this long. */
+const WHEEL_RELOCK_MS = 500;
+const WHEEL_RELOCK_MIN_PX = 12;
+/** Vertical travel for a touch swipe to change field. */
+const SWIPE_PX = 30;
 /** Cumulative offsets by distance from centre; index 0 is the centre. */
 const GAP_VARS = ["0px", "var(--gap-1)", "var(--gap-2)", "var(--gap-3)"];
 
@@ -45,10 +59,10 @@ export default function FocusWheelForm({ values, onChange, onComplete }: Props) 
   const [errors, setErrors] = useState<Partial<Record<FieldId, string>>>({});
   const [attempted, setAttempted] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | HTMLTextAreaElement | null)[]>([]);
-  const wheelLockedUntil = useRef(0);
   /** Set while a click/scroll moves the wheel, so focus lands after the
    *  card has arrived rather than while it is still travelling. */
   const focusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hostRef = useRef<HTMLDivElement>(null);
 
   const goTo = useCallback((index: number, focusAfter = true) => {
     const clamped = Math.max(0, Math.min(FIELDS.length - 1, index));
@@ -57,7 +71,14 @@ export default function FocusWheelForm({ values, onChange, onComplete }: Props) 
     if (focusTimer.current) clearTimeout(focusTimer.current);
     // Matches --wheel-move. Focusing before the card lands puts a
     // caret in something still sliding across the screen.
-    focusTimer.current = setTimeout(() => inputRefs.current[clamped]?.focus(), 400);
+    //
+    // preventScroll is load-bearing. A bare focus() scrolls the PAGE to
+    // bring the input into view — so every field change nudged the whole
+    // page, which is exactly the movement this form is meant not to cause.
+    focusTimer.current = setTimeout(
+      () => inputRefs.current[clamped]?.focus({ preventScroll: true }),
+      400,
+    );
   }, []);
 
   useEffect(
@@ -67,99 +88,150 @@ export default function FocusWheelForm({ values, onChange, onComplete }: Props) 
     [],
   );
 
-  // ── Scroll over the form moves one field per gesture ──────────────
+  /**
+   * Whether navigating should also move the caret. On a phone, focusing
+   * an input opens the keyboard — so a swipe that merely browses the
+   * fields must NOT focus one, or every swipe throws a keyboard up and
+   * shoves the page around. Once the visitor is already typing, though,
+   * focus follows the wheel, so their next keystroke lands in the field
+   * they can see rather than the one that just slid off-centre.
+   */
+  const shouldFocusAfterNav = () => {
+    if (!window.matchMedia("(pointer: coarse)").matches) return true;
+    const el = document.activeElement;
+    return Boolean(el && hostRef.current?.contains(el));
+  };
+
+  // Mirrors `active` for the listeners below, which attach ONCE. They
+  // used to re-attach on every field change, and each re-attach reset
+  // the gesture state — so a trackpad's momentum arriving just after a
+  // step looked like a brand-new gesture and stepped again.
+  const activeRef = useRef(active);
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
+
+  // ── Nothing under the wheel scrolls the page ──────────────────────
   //
-  // A manual, non-passive listener rather than React's onWheel: React
-  // attaches wheel handlers passively, which makes preventDefault a
-  // silent no-op, and without it the page scrolls away underneath the
-  // form instead of the form advancing.
-  //
-  // Re-attached whenever the active field changes. That is seven
-  // listener swaps over a whole form fill — cheaper than the ref-mirror
-  // alternative, and it cannot go stale.
-  const hostRef = useRef<HTMLDivElement>(null);
+  // While the pointer or finger is on the fields, the fields are the
+  // only thing that moves — including at the first and last field, where
+  // the gesture simply does nothing. That is a deliberate change from
+  // "release at the edges": with the page moving under a half-filled
+  // form, the field being typed into slides away from under the cursor.
+  // The page is still scrollable from everywhere else on it.
   useEffect(() => {
     const node = hostRef.current;
     if (!node) return;
-    const handler = (e: WheelEvent) => {
-      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
-      const next = active + (e.deltaY > 0 ? 1 : -1);
-      // At either end the gesture is released to the page, so the form
-      // is never a scroll trap — the same rule the Ecosystem section
-      // follows.
+
+    const step = (direction: 1 | -1) => {
+      const next = activeRef.current + direction;
       if (next < 0 || next >= FIELDS.length) return;
-      e.preventDefault();
-      const now = performance.now();
-      if (now < wheelLockedUntil.current) return;
-      wheelLockedUntil.current = now + WHEEL_COOLDOWN_MS;
-      goTo(next);
+      // Written ahead of the re-render so two steps in one frame count
+      // from the right place.
+      activeRef.current = next;
+      goTo(next, shouldFocusAfterNav());
     };
-    // ── Touch ──────────────────────────────────────────────────────
+
+    /** A multiline field with room left to scroll that way keeps the
+     *  gesture — a long note has to stay readable. Only at its end does
+     *  the wheel take over. */
+    const scrollableTextarea = (target: EventTarget | null, direction: 1 | -1) => {
+      const ta = target instanceof Element ? target.closest("textarea") : null;
+      if (!ta) return null;
+      const room = direction > 0 ? ta.scrollHeight - ta.clientHeight - ta.scrollTop : ta.scrollTop;
+      return room > 1 ? ta : null;
+    };
+
+    // ── Wheel / trackpad ─────────────────────────────────────────
+    let acc = 0;
+    let lastAt = 0;
+    let lastAbs = 0;
+    let locked = false;
+    let lockedAt = 0;
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.cancelable) e.preventDefault();
+      // Firefox reports in lines or pages for some mice; normalise.
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * node.clientHeight : e.deltaY;
+      if (Math.abs(dy) <= Math.abs(e.deltaX)) return;
+      const direction = dy > 0 ? 1 : -1;
+
+      const ta = scrollableTextarea(e.target, direction);
+      if (ta) {
+        ta.scrollTop += dy;
+        return;
+      }
+
+      const now = performance.now();
+      const abs = Math.abs(dy);
+      if (now - lastAt > WHEEL_QUIET_MS) {
+        locked = false;
+        acc = 0;
+      }
+      lastAt = now;
+
+      if (locked) {
+        const freshPush = abs >= 20 && abs > lastAbs * 1.6 && now - lockedAt > 200;
+        const heldStream = now - lockedAt > WHEEL_RELOCK_MS && abs >= WHEEL_RELOCK_MIN_PX && abs >= lastAbs;
+        lastAbs = abs;
+        if (!freshPush && !heldStream) return; // momentum tail of the same flick
+        locked = false;
+        acc = 0;
+      }
+      lastAbs = abs;
+
+      acc += dy;
+      if (Math.abs(acc) >= WHEEL_STEP_PX) {
+        step(acc > 0 ? 1 : -1);
+        locked = true;
+        lockedAt = now;
+        acc = 0;
+      }
+    };
+
+    // ── Touch ────────────────────────────────────────────────────
     //
-    // The page used to move at the same time as the wheel. Without a
-    // touchmove handler the browser scrolls the whole document through
-    // the drag, and then touchend advanced a field on top of it — two
-    // things moving for one gesture, which reads as the page lurching.
-    //
-    // So the gesture is CLAIMED as soon as vertical intent is clear, and
-    // only then. Before that, and whenever the wheel cannot honour it,
-    // the browser keeps the gesture and the page scrolls normally — the
-    // form must never become a place you cannot scroll out of.
-    let startY = 0;
+    // The page is kept still by CSS, not by preventDefault: the wheel is
+    // `touch-action: none` (see book.css), which tells the browser a drag
+    // here is not a scroll at all. That is the only reliable way on iOS —
+    // a preventDefault in touchmove is ignored once the browser has
+    // committed to a pan, which it does within the first few pixels.
+    // So every listener here is passive and only reads positions.
     let startX = 0;
-    let claimed: number | null = null;
-    let decided = false;
+    let startY = 0;
+    let inScrollableText = false;
 
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length !== 1) return;
-      startY = e.touches[0].clientY;
       startX = e.touches[0].clientX;
-      claimed = null;
-      decided = false;
-    };
-
-    const onTouchMove = (e: TouchEvent) => {
-      if (e.touches.length !== 1) return;
-      if (decided) {
-        // Keep preventing for the rest of a claimed gesture; a single
-        // preventDefault only stops the frame it was called on.
-        if (claimed !== null && e.cancelable) e.preventDefault();
-        return;
-      }
-      const dy = e.touches[0].clientY - startY;
-      const dx = e.touches[0].clientX - startX;
-      // Small, so the page has barely moved by the time we take over.
-      if (Math.abs(dy) < DECIDE_PX) return;
-      decided = true;
-      if (Math.abs(dy) <= Math.abs(dx)) return; // horizontal — not ours
-      const target = active + (dy < 0 ? 1 : -1);
-      if (target < 0 || target >= FIELDS.length) return; // edge release
-      claimed = target;
-      if (e.cancelable) e.preventDefault();
+      startY = e.touches[0].clientY;
+      // A long note that overflows its box is allowed to pan itself
+      // (book.css), so a drag that starts inside it is reading, not
+      // navigating.
+      inScrollableText =
+        e.target instanceof Element && Boolean(e.target.closest('textarea[data-scrollable="true"]'));
     };
 
     const onTouchEnd = (e: TouchEvent) => {
-      if (claimed === null) return;
-      const dy = (e.changedTouches[0]?.clientY ?? startY) - startY;
-      // Claimed at DECIDE_PX, but only committed at a real swipe
-      // distance — a short drag should not change the field under
-      // someone who was only trying to scroll.
-      if (Math.abs(dy) >= COMMIT_PX) goTo(claimed);
-      claimed = null;
-      decided = false;
+      if (inScrollableText) return;
+      const t = e.changedTouches[0];
+      if (!t) return;
+      const dy = t.clientY - startY;
+      const dx = t.clientX - startX;
+      if (Math.abs(dy) < SWIPE_PX || Math.abs(dy) <= Math.abs(dx)) return;
+      step(dy < 0 ? 1 : -1);
     };
 
-    node.addEventListener("wheel", handler, { passive: false });
+    node.addEventListener("wheel", onWheel, { passive: false });
     node.addEventListener("touchstart", onTouchStart, { passive: true });
-    node.addEventListener("touchmove", onTouchMove, { passive: false });
     node.addEventListener("touchend", onTouchEnd, { passive: true });
     return () => {
-      node.removeEventListener("wheel", handler);
+      node.removeEventListener("wheel", onWheel);
       node.removeEventListener("touchstart", onTouchStart);
-      node.removeEventListener("touchmove", onTouchMove);
       node.removeEventListener("touchend", onTouchEnd);
     };
-  }, [active, goTo]);
+    // Attached once: `goTo` is stable and `active` is read through a ref.
+  }, [goTo]);
 
   const submit = () => {
     setAttempted(true);
@@ -218,11 +290,16 @@ export default function FocusWheelForm({ values, onChange, onComplete }: Props) 
         </span>
       </div>
 
-      <div ref={hostRef} className="focusWheel">
+      {/* data-lenis-prevent: Lenis smooth-scrolls the page from its own
+          window-level wheel listener and does not look at preventDefault,
+          so without this every wheel step over the form ALSO scrolled the
+          page by a notch — measured at ~100px per event. This attribute is
+          Lenis's own opt-out for an element and everything inside it. */}
+      <div ref={hostRef} className="focusWheel" data-lenis-prevent="">
         <button
           type="button"
           className="focusWheel__nudge focusWheel__nudge--up"
-          onClick={() => goTo(active - 1)}
+          onClick={() => goTo(active - 1, shouldFocusAfterNav())}
           disabled={active === 0}
           aria-label="Previous field"
         >
@@ -300,7 +377,14 @@ export default function FocusWheelForm({ values, onChange, onComplete }: Props) 
                   placeholder={field.placeholder}
                   maxLength={field.maxLength}
                   value={values[field.id]}
-                  onChange={(e) => onChange(field.id, e.target.value)}
+                  onChange={(e) => {
+                    // Flags a note that has outgrown its box, so book.css
+                    // can let a finger pan inside it (and only it). The
+                    // DOM already holds the new text when this fires.
+                    const ta = e.currentTarget;
+                    ta.dataset.scrollable = String(ta.scrollHeight > ta.clientHeight + 1);
+                    onChange(field.id, e.target.value);
+                  }}
                   onKeyDown={(e) => onKeyDown(e, i)}
                   onFocus={() => setActive(i)}
                   aria-label={field.label}
@@ -338,7 +422,7 @@ export default function FocusWheelForm({ values, onChange, onComplete }: Props) 
         <button
           type="button"
           className="focusWheel__nudge focusWheel__nudge--down"
-          onClick={() => goTo(active + 1)}
+          onClick={() => goTo(active + 1, shouldFocusAfterNav())}
           disabled={active === FIELDS.length - 1}
           aria-label="Next field"
         >
