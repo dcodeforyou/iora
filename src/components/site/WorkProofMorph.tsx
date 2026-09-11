@@ -16,6 +16,11 @@ import "@/styles/work-proof-morph.css";
  * timers: one state update per morph, and the browser handles the
  * offsets.
  *
+ * It recurs on its own every five seconds or so, with a little variance
+ * so it never settles into a blink rate, and hover or focus can call it
+ * at any time. It skips background tabs, and reduced motion gets no
+ * automatic passes at all.
+ *
  * No intermediate glyph pass. §1.4 of the brief allows at most one, and
  * then describes the travel-and-blur version as the better one — a
  * character storm is the hacker effect §1.2 explicitly rules out.
@@ -32,6 +37,20 @@ const MORPH_MS = STAGGER_MS * 4 + CHAR_MS;
 
 const INITIAL_HOLD_MS = 2000;
 const PROOF_HOLD_MS = 750;
+/** One full WORK -> PROOF -> WORK pass, start to settled. */
+const CYCLE_MS = MORPH_MS * 2 + PROOF_HOLD_MS;
+/**
+ * How long WORK rests between passes. A range, not a constant: a fixed
+ * interval turns the reveal into a metronome — something the eye learns
+ * to tune out within three beats. A little variance keeps it reading as
+ * a signal that surfaces, rather than a light that blinks.
+ */
+const REST_MIN_MS = 4200;
+const REST_MAX_MS = 5800;
+/** Hover can start a pass at any moment; an automatic one landing right
+ *  after it would read as a stutter, so auto passes keep this much clear
+ *  space after ANY pass began. */
+const MIN_GAP_MS = 3000;
 
 type Slot = {
   cur: string;
@@ -56,6 +75,7 @@ export default function WorkProofMorph({ handleRef }: { handleRef?: RefObject<Wo
   // leave one firing into a component that no longer exists.
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const running = useRef(false);
+  const lastPassAt = useRef(0);
 
   const clearTimers = useCallback(() => {
     for (const t of timers.current) clearTimeout(t);
@@ -101,6 +121,7 @@ export default function WorkProofMorph({ handleRef }: { handleRef?: RefObject<Wo
   const play = useCallback(() => {
     if (running.current) return;
     running.current = true;
+    lastPassAt.current = performance.now();
     setWordTo("proof");
     after(MORPH_MS + PROOF_HOLD_MS, () => {
       setWordTo("work");
@@ -116,10 +137,30 @@ export default function WorkProofMorph({ handleRef }: { handleRef?: RefObject<Wo
     // Reduced motion gets no unprompted animation at all — the word is
     // simply WORK until the visitor asks for it by hovering or focusing.
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    after(INITIAL_HOLD_MS, play);
-    // Running this once per mount is the whole intent — it is a
-    // page-load reveal, not something to re-fire on every render.
-  }, [after, play]);
+
+    // Its own timer rather than `after()`, because it is rescheduled on
+    // every tick and only ever needs the one pending handle.
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      // A background tab gets nothing. Browsers throttle hidden timers to
+      // roughly once a second anyway, so without this the passes queue up
+      // and fire in a burst the moment the tab comes back.
+      if (document.hidden) {
+        timer = setTimeout(tick, 1000);
+        return;
+      }
+      const sinceLast = performance.now() - lastPassAt.current;
+      if (sinceLast < MIN_GAP_MS) {
+        timer = setTimeout(tick, MIN_GAP_MS - sinceLast);
+        return;
+      }
+      play();
+      const rest = REST_MIN_MS + Math.random() * (REST_MAX_MS - REST_MIN_MS);
+      timer = setTimeout(tick, CYCLE_MS + rest);
+    };
+    timer = setTimeout(tick, INITIAL_HOLD_MS);
+    return () => clearTimeout(timer);
+  }, [play]);
 
   // Separate from the effect above because that one bails early under
   // reduced motion, and hover can still start timers on that path.

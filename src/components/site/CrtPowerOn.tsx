@@ -884,9 +884,15 @@ export default function CrtPowerOn() {
                             disappeared rather than waiting. No drop shadow:
                             the mask would clip it into a hard edge under each
                             character. */}
+                        {/* 90% via opacity rather than a translucent stroke
+                            colour: color-mix inside -webkit-text-stroke is
+                            recent enough on iOS that an older phone would
+                            drop the whole declaration and lose the outline
+                            entirely. This span holds nothing but the
+                            stroke, so its opacity touches nothing else. */}
                         <span
                           className="block text-transparent"
-                          style={{ WebkitTextStroke: "0.75px var(--color-chalk)" }}
+                          style={{ WebkitTextStroke: "0.75px var(--color-chalk)", opacity: 0.9 }}
                         >
                           {ch}
                         </span>
